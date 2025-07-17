@@ -1,16 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ksmClient, ksmApi } from "@/lib/blockchain"
 
 export default function DebugPage() {
   const [status, setStatus] = useState("Initializing...")
   const [blockNumber, setBlockNumber] = useState<number | null>(null)
 
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === "undefined") return
+
     const testConnection = async () => {
       try {
         setStatus("Connecting to Kusama...")
+        
+        // Dynamically import blockchain modules to avoid SSR issues
+        const { ksmClient, ksmApi } = await import("@/lib/blockchain")
         
         // Test if we can get the chain info
         const chainInfo = await ksmClient.getChainSpecData()

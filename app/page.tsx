@@ -2,16 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, Zap, Shuffle } from "lucide-react"
+import { Zap, Shuffle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { SoundControl } from "@/components/sound-control"
 import { useSoundContext } from "@/components/sound-provider"
 
 export default function KusamaHub() {
   const { playSound } = useSoundContext()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [xp, setXp] = useState(0)
   const [level, setLevel] = useState(1)
   const [zomboMode, setZomboMode] = useState(false)
@@ -136,7 +134,7 @@ export default function KusamaHub() {
 
   return (
     <div
-      className={`h-screen bg-midnight-void text-ghost-grey font-inter overflow-hidden ${zomboMode ? "animate-pulse" : ""}`}
+      className={`min-h-screen bg-midnight-void text-ghost-grey font-inter pt-16 ${zomboMode ? "animate-pulse" : ""}`}
     >
       {/* Custom Cursor Trail */}
       <div className="fixed inset-0 pointer-events-none z-50">
@@ -154,120 +152,10 @@ export default function KusamaHub() {
         ))}
       </div>
 
-      {/* Neon Taskbar */}
-      <header className="fixed top-0 w-full bg-midnight-void/95 backdrop-blur-sm border-b border-toxic-slime/30 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center space-x-4">
-              <motion.div
-                className="text-toxic-slime font-orbitron font-black text-xl tracking-tight"
-                animate={{
-                  textShadow: zomboMode ? "0 0 10px #b6ff00, 0 0 20px #b6ff00, 0 0 30px #b6ff00" : "0 0 5px #b6ff00",
-                }}
-              >
-                kusamahub
-              </motion.div>
-              <Badge variant="outline" className="border-amber-crt text-amber-crt text-xs font-vt323">
-                v1.0
-              </Badge>
-            </div>
-
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center space-x-8">
-              {[
-                { name: "arcade", href: "/arcade" },
-                { name: "warp-drive", href: "/warp-drive" },
-                { name: "arena", href: "/arena" },
-                { name: "coretime", href: "/coretime" },
-                { name: "docs", href: "/docs" },
-                { name: "chaos log", href: "/chaos-log" },
-              ].map((item) => (
-                <Link key={item.name} href={item.href}>
-                  <motion.span
-                    className="text-ghost-grey hover:text-toxic-slime transition-colors font-medium cursor-pointer"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onMouseEnter={() => playSound("hover")}
-                  >
-                    {item.name}
-                  </motion.span>
-                </Link>
-              ))}
-            </nav>
-
-            {/* Wallet & Controls */}
-            <div className="flex items-center space-x-4">
-              <SoundControl />
-
-              <div className="hidden sm:flex items-center space-x-2 px-3 py-1 bg-laser-berry/10 border border-laser-berry/30 rounded-full">
-                <span className="text-xs font-vt323">LVL {level}</span>
-                <div className="w-12 h-2 bg-midnight-void rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-toxic-slime transition-all duration-300"
-                    style={{ width: `${xp % 100}%` }}
-                  />
-                </div>
-              </div>
-
-              <Button
-                className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/90 font-medium"
-                onClick={() => playSound("click")}
-              >
-                jack in
-              </Button>
-
-              {/* Mobile Menu Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="md:hidden"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              >
-                <motion.div animate={mobileMenuOpen ? { rotate: 180 } : { rotate: 0 }} transition={{ duration: 0.2 }}>
-                  {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                </motion.div>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden bg-midnight-void/98 border-t border-toxic-slime/30"
-            >
-              <div className="px-4 py-4 space-y-3">
-                {[
-                  { name: "arcade", href: "/arcade" },
-                  { name: "warp-drive", href: "/warp-drive" },
-                  { name: "arena", href: "/arena" },
-                  { name: "coretime", href: "/coretime" },
-                  { name: "docs", href: "/docs" },
-                  { name: "chaos log", href: "/chaos-log" },
-                ].map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className="block text-ghost-grey hover:text-toxic-slime transition-colors font-medium py-2"
-                  >
-                    {item.name}
-                  </Link>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </header>
-
       {/* Main Content Container */}
       <div className="flex flex-col h-full">
         {/* Hero Canvas */}
-        <section className="relative flex-1 flex items-center justify-center pt-16 overflow-hidden">
+        <section className="relative flex-1 flex items-center justify-center overflow-hidden">
           {/* Animated Background */}
           <div className="absolute inset-0 opacity-20">
             <div

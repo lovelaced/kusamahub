@@ -459,6 +459,47 @@
   }
 }
 
+/* Glitch animation for button */
+.animate-glitch {
+  animation: button-glitch 0.3s ease-out;
+}
+
+@keyframes button-glitch {
+  0% {
+    transform: translate(0);
+  }
+  10% {
+    transform: translate(-2px, -2px);
+  }
+  20% {
+    transform: translate(2px, 2px);
+  }
+  30% {
+    transform: translate(-1px, 1px);
+  }
+  40% {
+    transform: translate(1px, -1px);
+  }
+  50% {
+    transform: translate(-1px, 0);
+  }
+  60% {
+    transform: translate(0, 1px);
+  }
+  70% {
+    transform: translate(1px, 0);
+  }
+  80% {
+    transform: translate(0, -1px);
+  }
+  90% {
+    transform: translate(-1px, 0);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
 /* Retro window styling */
 .retro-window {
   background: #c0c0c0;

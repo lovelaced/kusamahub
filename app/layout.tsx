@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { SoundProvider } from "@/components/sound-provider"
 import { CustomCursor } from "@/components/custom-cursor"
 import { ExtensionProvider } from "@/contexts/extension-context"
+import { LayoutWithNavigation } from "@/components/layout-with-navigation"
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -26,8 +27,8 @@ const vt323 = VT323({
 })
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
+  title: "KusamaHub - stop behaving. start blockraving.",
+  description: "A chaotic collection of Kusama-native dapps that embrace the network's experimental spirit. Built with anarchic competence and zero corporate polish.",
   generator: "v0.dev",
 }
 
@@ -47,7 +48,9 @@ export default function RootLayout({
         <SoundProvider>
           <ExtensionProvider>
             <CustomCursor />
-            {children}
+            <LayoutWithNavigation>
+              {children}
+            </LayoutWithNavigation>
           </ExtensionProvider>
         </SoundProvider>
       </body>

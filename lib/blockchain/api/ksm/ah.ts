@@ -1,14 +1,21 @@
 "use client"
 
-import { ksmAhApi } from "../clients/ksmAh"
 import { fromAssetHubToRelay, watchAccoutFreeBalance } from "../../common"
 import type { AssetInChain } from "../../types"
 
 export const ksmAssetHub: AssetInChain = {
   chain: "ksmAh",
   symbol: "KSM",
-  watchFreeBalance: watchAccoutFreeBalance(ksmAhApi),
-  teleport: {
-    ksm: fromAssetHubToRelay(ksmAhApi.tx.PolkadotXcm.transfer_assets),
+  get watchFreeBalance() {
+    // Lazy load ksmAhApi only when accessed
+    const { ksmAhApi } = require("../clients/ksmAh")
+    return watchAccoutFreeBalance(ksmAhApi)
+  },
+  get teleport() {
+    // Lazy load ksmAhApi only when accessed
+    const { ksmAhApi } = require("../clients/ksmAh")
+    return {
+      ksm: fromAssetHubToRelay(ksmAhApi.tx.PolkadotXcm.transfer_assets),
+    }
   },
 }
