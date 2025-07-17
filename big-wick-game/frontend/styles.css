@@ -1,0 +1,597 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #333;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+header p {
+    font-size: 1.2em;
+    color: #7f8c8d;
+    margin-bottom: 20px;
+}
+
+.network-info {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+#network-status {
+    font-weight: bold;
+    padding: 8px 16px;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+
+#network-status.connected {
+    background: #d4edda;
+    color: #155724;
+}
+
+button {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background: #2980b9;
+}
+
+button:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+}
+
+section {
+    background: rgba(255, 255, 255, 0.95);
+    margin-bottom: 30px;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.8em;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.status-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    border: 2px solid transparent;
+    transition: border-color 0.3s;
+}
+
+.status-card:hover {
+    border-color: #3498db;
+}
+
+.status-card h3 {
+    color: #7f8c8d;
+    font-size: 0.9em;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.status-card div {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.timeline-container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.timeline-container::before {
+    content: '';
+    position: absolute;
+    top: 30px;
+    left: 16.66%;
+    right: 16.66%;
+    height: 4px;
+    background: #e0e0e0;
+    z-index: 1;
+}
+
+.timeline-phase {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+}
+
+.timeline-phase::before {
+    content: '';
+    width: 20px;
+    height: 20px;
+    background: #e0e0e0;
+    border-radius: 50%;
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid white;
+}
+
+.timeline-phase.active::before {
+    background: #3498db;
+}
+
+.timeline-phase.completed::before {
+    background: #27ae60;
+}
+
+.timeline-phase h4 {
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+.phase-duration {
+    font-weight: bold;
+    color: #3498db;
+    margin-bottom: 5px;
+}
+
+.phase-desc {
+    font-size: 0.9em;
+    color: #7f8c8d;
+}
+
+.time-remaining {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.bid-form {
+    display: flex;
+    gap: 20px;
+    align-items: end;
+    margin-bottom: 30px;
+}
+
+.input-group {
+    flex: 1;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1em;
+    transition: border-color 0.3s;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.your-bids {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.your-bids h3 {
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+#user-bid-info {
+    display: flex;
+    gap: 30px;
+    font-size: 1.1em;
+}
+
+#user-bid-info span {
+    font-weight: bold;
+    color: #3498db;
+}
+
+.leaderboard {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+#leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.leaderboard-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+}
+
+.leaderboard-item:first-child {
+    border-left-color: #f1c40f;
+    background: #fff9c4;
+}
+
+.leaderboard-item:nth-child(2) {
+    border-left-color: #95a5a6;
+}
+
+.leaderboard-item:nth-child(3) {
+    border-left-color: #cd7f32;
+}
+
+.player-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.player-address {
+    font-family: monospace;
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+.player-bid {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 1.1em;
+}
+
+.no-data {
+    text-align: center;
+    color: #7f8c8d;
+    font-style: italic;
+    padding: 20px;
+}
+
+.admin-controls {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.admin-controls button {
+    background: #e74c3c;
+}
+
+.admin-controls button:hover {
+    background: #c0392b;
+}
+
+.admin-controls button:first-child {
+    background: #27ae60;
+}
+
+.admin-controls button:first-child:hover {
+    background: #229954;
+}
+
+/* Bid History Visualization */
+.bid-history {
+    margin-top: 30px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+}
+
+.bid-history h3 {
+    margin-bottom: 20px;
+    color: #2c3e50;
+    text-align: center;
+}
+
+.bid-timeline {
+    position: relative;
+    height: 300px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    padding: 10px;
+}
+
+.time-axis {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: #e9ecef;
+    border-top: 2px solid #dee2e6;
+}
+
+.time-marker {
+    position: absolute;
+    top: 5px;
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 500;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+.y-axis {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    bottom: 30px;
+    width: 80px;
+    background: #e9ecef;
+    border-right: 2px solid #dee2e6;
+}
+
+.bid-chart {
+    position: absolute;
+    top: 10px;
+    left: 90px;
+    right: 10px;
+    bottom: 30px;
+    border-left: 2px solid #dee2e6;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.y-marker {
+    position: absolute;
+    right: 5px;
+    font-size: 11px;
+    color: #6c757d;
+    font-weight: 500;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    text-align: right;
+}
+
+.bid-point {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    cursor: pointer;
+    transform: translate(-50%, 50%);
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.bid-point:hover {
+    width: 16px;
+    height: 16px;
+    z-index: 20;
+}
+
+.bid-point:hover .bid-popup {
+    display: block;
+}
+
+.bid-popup {
+    display: none;
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+}
+
+.bid-popup::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+}
+
+.bid-player {
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+
+.bid-amount {
+    color: #4ecdc4;
+    font-weight: 500;
+}
+
+.bid-total {
+    color: #f39c12;
+    font-weight: 500;
+}
+
+.bid-time {
+    color: #bdc3c7;
+    font-size: 10px;
+    margin-top: 2px;
+}
+
+.bid-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #495057;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid #fff;
+}
+
+footer {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 30px;
+    text-align: center;
+}
+
+.contract-info h3 {
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+.contract-info div {
+    margin-bottom: 10px;
+    font-size: 0.9em;
+}
+
+.contract-info code {
+    background: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: #e74c3c;
+}
+
+.contract-info a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+.contract-info a:hover {
+    text-decoration: underline;
+}
+
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+    border: 1px solid #f5c6cb;
+}
+
+.success {
+    background: #d4edda;
+    color: #155724;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+    border: 1px solid #c3e6cb;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+    
+    header h1 {
+        font-size: 2em;
+    }
+    
+    .status-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .timeline-container {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .timeline-container::before {
+        display: none;
+    }
+    
+    .bid-form {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    #user-bid-info {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .admin-controls {
+        flex-direction: column;
+    }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "big-wick-game",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test --network hardhat",
+    "compile": "hardhat compile",
+    "validate": "hardhat run scripts/validate-setup.js --network passetHub",
+    "deploy:local": "hardhat ignition deploy ./ignition/modules/BigWickGame.js --network hardhat",
+    "deploy:paseo": "hardhat run scripts/deploy.js --network passetHub",
+    "deploy:paseo:ignition": "hardhat ignition deploy ./ignition/modules/BigWickGame.js --network passetHub",
+    "interact": "hardhat run scripts/interact.js",
+    "interact:paseo": "hardhat run scripts/interact.js --network passetHub",
+    "serve": "node frontend/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@parity/hardhat-polkadot": "^0.1.8-p1",
+    "solc": "^0.8.28"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@polkadot/keyring": "^13.5.3",
+    "@polkadot/util": "^13.5.3",
+    "@polkadot/util-crypto": "^13.5.3",
+    "dotenv": "^17.2.0"
+  }
+}

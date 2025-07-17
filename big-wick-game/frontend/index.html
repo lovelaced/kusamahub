@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIG WICK Game - Paseo TestNet</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🕯️ BIG WICK Game</h1>
+            <p>Candle Auction Game on Paseo TestNet</p>
+            <div class="network-info">
+                <span id="network-status">❌ Not Connected</span>
+                <button id="connect-wallet">Connect MetaMask</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Game Status Section -->
+            <section class="game-status">
+                <h2>Current Game Status</h2>
+                <div class="status-grid">
+                    <div class="status-card">
+                        <h3>Game ID</h3>
+                        <div id="game-id">-</div>
+                    </div>
+                    <div class="status-card">
+                        <h3>State</h3>
+                        <div id="game-state">-</div>
+                    </div>
+                    <div class="status-card">
+                        <h3>Prize Pot</h3>
+                        <div id="prize-pot">0 PAS</div>
+                    </div>
+                    <div class="status-card">
+                        <h3>Players</h3>
+                        <div id="player-count">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Timeline Section -->
+            <section class="timeline">
+                <h2>Game Timeline</h2>
+                <div class="timeline-container">
+                    <div class="timeline-phase starting">
+                        <h4>Starting Period</h4>
+                        <div class="phase-duration">2 Days</div>
+                        <div class="phase-desc">Regular bidding period</div>
+                    </div>
+                    <div class="timeline-phase ending">
+                        <h4>Ending Period</h4>
+                        <div class="phase-duration">5 Days</div>
+                        <div class="phase-desc">Candle auction period</div>
+                    </div>
+                    <div class="timeline-phase ended">
+                        <h4>Ended</h4>
+                        <div class="phase-duration">-</div>
+                        <div class="phase-desc">Winner determined</div>
+                    </div>
+                </div>
+                <div class="time-remaining">
+                    <div id="time-info">Game not started</div>
+                </div>
+                
+                <!-- Bid History Visualization -->
+                <div class="bid-history">
+                    <h3>Bid History</h3>
+                    <div id="bid-timeline-chart">
+                        <div class="no-data">No bids yet</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bidding Section -->
+            <section class="bidding">
+                <h2>Place Your Bid</h2>
+                <div class="bid-form">
+                    <div class="input-group">
+                        <label for="bid-amount">Bid Amount (PAS)</label>
+                        <input type="number" id="bid-amount" placeholder="0.1" min="0.001" step="0.001">
+                    </div>
+                    <button id="place-bid" disabled>Place Bid</button>
+                </div>
+                <div class="your-bids">
+                    <h3>Your Bids</h3>
+                    <div id="user-bid-info">
+                        <div>Total Bid: <span id="user-total-bid">0 PAS</span></div>
+                        <div>Bid Count: <span id="user-bid-count">0</span></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Leaderboard Section -->
+            <section class="leaderboard">
+                <h2>BIGGEST WICKS</h2>
+                <div id="leaderboard-list">
+                    <div class="no-data">No bids yet</div>
+                </div>
+            </section>
+
+            <!-- Admin Section -->
+            <section class="admin" id="admin-section" style="display: none;">
+                <h2>Admin Controls</h2>
+                <div class="admin-controls">
+                    <button id="start-game">Start New Game</button>
+                    <button id="end-game">End Current Game</button>
+                    <button id="withdraw-treasury">Withdraw Treasury</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="contract-info">
+                <h3>Contract Information</h3>
+                <div>Address: <code id="contract-address">0x756A7A61D32F83E4b9CBdAB133da6C27EB4b2245</code></div>
+                <div>Network: Paseo TestNet (420420422)</div>
+                <div>
+                    <a href="https://blockscout-passet-hub.parity-testnet.parity.io/address/0x756A7A61D32F83E4b9CBdAB133da6C27EB4b2245" target="_blank">
+                        View on Block Explorer
+                    </a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.1/dist/ethers.umd.min.js"></script>
+    <script src="contract-abi.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
