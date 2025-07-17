@@ -1,0 +1,22 @@
+{
+  "name": "@polkadot-api/descriptors",
+  "version": "0.0.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "module": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "sideEffects": false,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "polkadot-api": "*"
+  }
+}

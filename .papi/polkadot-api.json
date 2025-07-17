@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "descriptorVersion": 1,
+  "outputDir": ".papi/descriptors",
+  "entries": {
+    "ksm": {
+      "metadata": ".papi/metadata/ksm.scale",
+      "genesisHash": "0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe",
+      "codeHashes": [
+        "0x4c843d1c1b5ce542fcc0e9cc1439ad3384e5753da24d2747c4aa24162a202449"
+      ],
+      "wsUrls": []
+    },
+    "ksmAh": {
+      "metadata": ".papi/metadata/ksmAh.scale",
+      "genesisHash": "0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a",
+      "codeHashes": [
+        "0x8356dd03a2a5521b9339ce0c6b2a56d3edf83f0ca7262e9edabb695df770a0f6"
+      ],
+      "wsUrls": []
+    }
+  }
+}

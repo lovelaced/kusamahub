@@ -1,0 +1,1244 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #050006;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #b6ff00;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8ccc00;
+}
+
+/* Retro CRT effects */
+.crt-scanlines {
+  position: relative;
+  overflow: hidden;
+}
+
+.crt-scanlines::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 0, 0.03) 2px,
+    rgba(0, 255, 0, 0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Glitch text effect */
+.glitch {
+  position: relative;
+  color: #b6ff00;
+  font-weight: bold;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.glitch::before {
+  animation: glitch-1 0.5s infinite;
+  color: #ff006e;
+  z-index: -1;
+}
+
+.glitch::after {
+  animation: glitch-2 0.5s infinite;
+  color: #00faff;
+  z-index: -2;
+}
+
+@keyframes glitch-1 {
+  0%,
+  14%,
+  15%,
+  49%,
+  50%,
+  99%,
+  100% {
+    transform: translate(0);
+  }
+  15%,
+  49% {
+    transform: translate(-2px, -1px);
+  }
+}
+
+@keyframes glitch-2 {
+  0%,
+  20%,
+  21%,
+  62%,
+  63%,
+  99%,
+  100% {
+    transform: translate(0);
+  }
+  21%,
+  62% {
+    transform: translate(2px, 1px);
+  }
+}
+
+/* Matrix rain effect */
+.matrix-rain {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.1;
+}
+
+.matrix-char {
+  position: absolute;
+  color: #b6ff00;
+  font-family: "VT323", monospace;
+  font-size: 14px;
+  animation: matrix-fall 3s linear infinite;
+}
+
+@keyframes matrix-fall {
+  0% {
+    transform: translateY(-100vh);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+/* Neon glow effects */
+.neon-glow {
+  text-shadow: 0 0 5px currentColor, 0 0 10px currentColor, 0 0 15px currentColor, 0 0 20px currentColor;
+}
+
+.neon-border {
+  box-shadow: 0 0 5px currentColor, 0 0 10px currentColor, 0 0 15px currentColor, inset 0 0 5px currentColor;
+}
+
+/* Retro button styles */
+.retro-button {
+  background: linear-gradient(45deg, #b6ff00, #8ccc00);
+  border: 2px solid #b6ff00;
+  color: #050006;
+  font-family: "VT323", monospace;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.3s ease;
+}
+
+.retro-button:hover {
+  background: linear-gradient(45deg, #8ccc00, #b6ff00);
+  box-shadow: 0 0 20px #b6ff00;
+  transform: translateY(-2px);
+}
+
+/* Winamp-style window */
+.winamp-window {
+  background: linear-gradient(to bottom, #c0c0c0, #808080);
+  border: 2px outset #c0c0c0;
+  font-family: "VT323", monospace;
+}
+
+.winamp-titlebar {
+  background: linear-gradient(to right, #000080, #0000ff);
+  color: white;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+/* Pixel art scaling */
+.pixel-art {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Terminal-style text */
+.terminal-text {
+  font-family: "VT323", monospace;
+  color: #b6ff00;
+  background: #050006;
+  padding: 1rem;
+  border: 1px solid #b6ff00;
+  border-radius: 0;
+}
+
+/* Cyberpunk grid background */
+.cyber-grid {
+  background-image: linear-gradient(rgba(182, 255, 0, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(182, 255, 0, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Holographic effect */
+.holographic {
+  background: linear-gradient(45deg, #ff006e, #00faff, #b6ff00, #ffbe00);
+  background-size: 400% 400%;
+  animation: hologram 3s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes hologram {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Retro loading animation */
+.retro-loader {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #b6ff00;
+  border-top: 4px solid transparent;
+  border-radius: 50%;
+  animation: retro-spin 1s linear infinite;
+}
+
+@keyframes retro-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ASCII art styling */
+.ascii-art {
+  font-family: "VT323", monospace;
+  line-height: 1;
+  white-space: pre;
+  color: #b6ff00;
+  text-shadow: 0 0 10px #b6ff00;
+}
+
+/* Retro card styling */
+.retro-card {
+  background: linear-gradient(135deg, #050006 0%, #0a0a0f 100%);
+  border: 2px solid #b6ff00;
+  box-shadow: 0 0 20px rgba(182, 255, 0, 0.3), inset 0 0 20px rgba(182, 255, 0, 0.1);
+}
+
+/* Marquee text */
+.marquee {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-content {
+  display: inline-block;
+  animation: marquee 30s linear infinite;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* Glowing border animation */
+.glow-border {
+  position: relative;
+  border: 2px solid transparent;
+  background: linear-gradient(#050006, #050006) padding-box, linear-gradient(45deg, #b6ff00, #ff006e, #00faff, #ffbe00)
+    border-box;
+}
+
+/* Retro progress bar */
+.retro-progress {
+  background: #050006;
+  border: 2px inset #c0c0c0;
+  height: 20px;
+  overflow: hidden;
+}
+
+.retro-progress-fill {
+  background: linear-gradient(90deg, #b6ff00, #8ccc00);
+  height: 100%;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.retro-progress-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 10px,
+    rgba(255, 255, 255, 0.2) 10px,
+    rgba(255, 255, 255, 0.2) 20px
+  );
+}
+
+/* Scanline effect */
+.scanlines {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanlines::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 0, 0.03) 2px,
+    rgba(0, 255, 0, 0.03) 4px
+  );
+  pointer-events: none;
+  animation: scanlines 0.1s linear infinite;
+}
+
+@keyframes scanlines {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 100%;
+  }
+}
+
+/* Retro input styling */
+.retro-input {
+  background: #050006;
+  border: 2px inset #c0c0c0;
+  color: #b6ff00;
+  font-family: "VT323", monospace;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.retro-input:focus {
+  outline: none;
+  border-color: #b6ff00;
+  box-shadow: 0 0 10px rgba(182, 255, 0, 0.5);
+}
+
+/* Cyberpunk text effect */
+.cyber-text {
+  background: linear-gradient(45deg, #b6ff00, #00faff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 30px rgba(182, 255, 0, 0.5);
+}
+
+/* Retro checkbox */
+.retro-checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px inset #c0c0c0;
+  background: #050006;
+  position: relative;
+}
+
+.retro-checkbox:checked {
+  background: #b6ff00;
+}
+
+.retro-checkbox:checked::after {
+  content: "✓";
+  position: absolute;
+  top: -2px;
+  left: 1px;
+  color: #050006;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+/* Glitch animation for text */
+.text-glitch {
+  animation: text-glitch 0.3s infinite;
+}
+
+@keyframes text-glitch {
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 2px);
+  }
+  40% {
+    transform: translate(-2px, -2px);
+  }
+  60% {
+    transform: translate(2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -2px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+/* Retro window styling */
+.retro-window {
+  background: #c0c0c0;
+  border: 2px outset #c0c0c0;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.retro-window-header {
+  background: linear-gradient(to right, #000080, #0000ff);
+  color: white;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.retro-window-content {
+  background: #c0c0c0;
+  padding: 8px;
+}
+
+/* Matrix digital rain */
+.matrix-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.05;
+}
+
+/* Neon outline effect */
+.neon-outline {
+  border: 2px solid currentColor;
+  box-shadow: 0 0 5px currentColor, inset 0 0 5px currentColor;
+}
+
+/* Retro badge styling */
+.retro-badge {
+  background: linear-gradient(45deg, #b6ff00, #8ccc00);
+  color: #050006;
+  border: 1px solid #b6ff00;
+  padding: 2px 6px;
+  font-family: "VT323", monospace;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+/* Cyberpunk button hover effect */
+.cyber-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.cyber-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.cyber-button:hover::before {
+  left: 100%;
+}
+
+/* Retro slider styling */
+.retro-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  background: #050006;
+  border: 2px inset #c0c0c0;
+  outline: none;
+}
+
+.retro-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 16px;
+  background: linear-gradient(45deg, #b6ff00, #8ccc00);
+  border: 2px outset #b6ff00;
+  cursor: pointer;
+}
+
+.retro-slider::-moz-range-thumb {
+  width: 20px;
+  height: 16px;
+  background: linear-gradient(45deg, #b6ff00, #8ccc00);
+  border: 2px outset #b6ff00;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+/* Terminal cursor blink */
+.terminal-cursor {
+  animation: cursor-blink 1s infinite;
+}
+
+@keyframes cursor-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Retro table styling */
+.retro-table {
+  border-collapse: collapse;
+  border: 2px solid #b6ff00;
+  background: #050006;
+  font-family: "VT323", monospace;
+}
+
+.retro-table th,
+.retro-table td {
+  border: 1px solid #b6ff00;
+  padding: 8px;
+  text-align: left;
+}
+
+.retro-table th {
+  background: linear-gradient(45deg, #b6ff00, #8ccc00);
+  color: #050006;
+  font-weight: bold;
+}
+
+/* Glowing text animation */
+.glow-text {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    text-shadow: 0 0 5px currentColor;
+  }
+  50% {
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+  }
+}
+
+/* Retro modal styling */
+.retro-modal {
+  background: #c0c0c0;
+  border: 3px outset #c0c0c0;
+  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+  font-family: "VT323", monospace;
+}
+
+.retro-modal-header {
+  background: linear-gradient(to right, #000080, #0000ff);
+  color: white;
+  padding: 4px 8px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.retro-modal-content {
+  padding: 16px;
+  background: #c0c0c0;
+}
+
+/* Cyberpunk grid overlay */
+.cyber-overlay {
+  position: relative;
+}
+
+.cyber-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: linear-gradient(rgba(182, 255, 0, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(182, 255, 0, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+}
+
+/* Retro tooltip */
+.retro-tooltip {
+  background: #ffffe0;
+  border: 1px solid #000;
+  color: #000;
+  font-family: "VT323", monospace;
+  font-size: 11px;
+  padding: 2px 4px;
+  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Neon box glow */
+.neon-box {
+  box-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor, inset 0 0 10px currentColor;
+}
+
+/* Retro select dropdown */
+.retro-select {
+  background: #050006;
+  border: 2px inset #c0c0c0;
+  color: #b6ff00;
+  font-family: "VT323", monospace;
+  padding: 4px;
+  font-size: 14px;
+}
+
+.retro-select:focus {
+  outline: none;
+  border-color: #b6ff00;
+  box-shadow: 0 0 10px rgba(182, 255, 0, 0.5);
+}
+
+/* Cyberpunk loading bar */
+.cyber-loading {
+  background: #050006;
+  border: 2px solid #b6ff00;
+  height: 20px;
+  overflow: hidden;
+  position: relative;
+}
+
+.cyber-loading::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, transparent 0%, #b6ff00 50%, transparent 100%);
+  animation: cyber-load 2s ease-in-out infinite;
+}
+
+@keyframes cyber-load {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Retro radio button */
+.retro-radio {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px inset #c0c0c0;
+  border-radius: 50%;
+  background: #050006;
+  position: relative;
+}
+
+.retro-radio:checked {
+  background: #b6ff00;
+}
+
+.retro-radio:checked::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #050006;
+}
+
+/* Matrix text effect */
+.matrix-text {
+  color: #b6ff00;
+  font-family: "VT323", monospace;
+  text-shadow: 0 0 10px #b6ff00;
+  animation: matrix-glow 2s ease-in-out infinite;
+}
+
+@keyframes matrix-glow {
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Retro panel styling */
+.retro-panel {
+  background: #c0c0c0;
+  border: 2px inset #c0c0c0;
+  padding: 8px;
+}
+
+.retro-panel-raised {
+  border: 2px outset #c0c0c0;
+}
+
+.retro-panel-sunken {
+  border: 2px inset #c0c0c0;
+}
+
+/* Cyberpunk accent lines */
+.cyber-accent {
+  position: relative;
+}
+
+.cyber-accent::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #b6ff00, transparent);
+}
+
+.cyber-accent::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ff006e, transparent);
+}
+
+/* Retro status bar */
+.retro-status {
+  background: #c0c0c0;
+  border: 1px inset #c0c0c0;
+  padding: 2px 4px;
+  font-family: "VT323", monospace;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Glitch border effect */
+.glitch-border {
+  border: 2px solid #b6ff00;
+  animation: glitch-border 0.5s infinite;
+}
+
+@keyframes glitch-border {
+  0%,
+  100% {
+    border-color: #b6ff00;
+  }
+  25% {
+    border-color: #ff006e;
+  }
+  50% {
+    border-color: #00faff;
+  }
+  75% {
+    border-color: #ffbe00;
+  }
+}
+
+/* Neon text glow */
+.neon-text {
+  color: #b6ff00;
+  text-shadow: 0 0 5px #b6ff00, 0 0 10px #b6ff00, 0 0 15px #b6ff00, 0 0 20px #b6ff00;
+}
+
+/* Retro menu styling */
+.retro-menu {
+  background: #c0c0c0;
+  border: 1px outset #c0c0c0;
+  font-family: "VT323", monospace;
+  font-size: 11px;
+}
+
+.retro-menu-item {
+  padding: 2px 16px;
+  cursor: pointer;
+}
+
+.retro-menu-item:hover {
+  background: #000080;
+  color: white;
+}
+
+.retro-menu-separator {
+  height: 1px;
+  background: #808080;
+  margin: 2px 0;
+}
+
+/* Cyberpunk data stream */
+.data-stream {
+  position: relative;
+  overflow: hidden;
+}
+
+.data-stream::before {
+  content: "01001001 01101110 01110100 01100101 01110010 01101110 01100101 01110100";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  color: #b6ff00;
+  font-family: "VT323", monospace;
+  font-size: 10px;
+  opacity: 0.3;
+  animation: data-stream 10s linear infinite;
+  white-space: nowrap;
+}
+
+@keyframes data-stream {
+  0% {
+    transform: translateX(-100%) translateY(-50%);
+  }
+  100% {
+    transform: translateX(100vw) translateY(-50%);
+  }
+}
+
+/* Retro icon styling */
+.retro-icon {
+  filter: drop-shadow(1px 1px 0px #000) drop-shadow(-1px -1px 0px #fff);
+}
+
+/* Cyberpunk scanline overlay */
+.scanline-overlay {
+  position: relative;
+}
+
+.scanline-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #b6ff00, transparent);
+  animation: scanline 2s linear infinite;
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+/* Retro form styling */
+.retro-form {
+  background: #c0c0c0;
+  border: 2px inset #c0c0c0;
+  padding: 16px;
+  font-family: "VT323", monospace;
+}
+
+.retro-form label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.retro-form input,
+.retro-form select,
+.retro-form textarea {
+  background: #fff;
+  border: 1px inset #c0c0c0;
+  padding: 2px 4px;
+  font-family: "VT323", monospace;
+  font-size: 11px;
+}
+
+/* Neon pulse animation */
+.neon-pulse {
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+
+@keyframes neon-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 5px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+  }
+}
+
+/* Retro window controls */
+.retro-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.retro-control-btn {
+  width: 16px;
+  height: 14px;
+  border: 1px outset #c0c0c0;
+  background: #c0c0c0;
+  font-size: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.retro-control-btn:active {
+  border: 1px inset #c0c0c0;
+}
+
+/* Cyberpunk hologram effect */
+.hologram-effect {
+  background: linear-gradient(
+    45deg,
+    rgba(182, 255, 0, 0.1) 0%,
+    rgba(255, 0, 110, 0.1) 25%,
+    rgba(0, 255, 255, 0.1) 50%,
+    rgba(255, 190, 0, 0.1) 75%,
+    rgba(182, 255, 0, 0.1) 100%
+  );
+  background-size: 400% 400%;
+  animation: hologram 3s ease infinite;
+}
+
+/* Retro divider */
+.retro-divider {
+  height: 2px;
+  background: #808080;
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #fff;
+  margin: 8px 0;
+}
+
+/* Matrix code rain */
+.matrix-rain-char {
+  position: absolute;
+  color: #b6ff00;
+  font-family: "VT323", monospace;
+  font-size: 14px;
+  animation: matrix-rain 3s linear infinite;
+  opacity: 0.7;
+}
+
+@keyframes matrix-rain {
+  0% {
+    transform: translateY(-100vh);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+/* Cyberpunk team shine effect */
+.team-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.team-shine::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%);
+  transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  animation: team-shine 1s ease-in-out;
+}
+
+@keyframes team-shine {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+/* Retro progress indicator */
+.retro-progress-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.retro-progress-dot {
+  width: 8px;
+  height: 8px;
+  background: #808080;
+  border: 1px inset #c0c0c0;
+}
+
+.retro-progress-dot.active {
+  background: #b6ff00;
+  border: 1px outset #b6ff00;
+}
+
+/* Cyberpunk error effect */
+.cyber-error {
+  color: #ff006e;
+  text-shadow: 0 0 10px #ff006e;
+  animation: cyber-error-flicker 0.5s infinite;
+}
+
+@keyframes cyber-error-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Retro spinner */
+.retro-spinner {
+  width: 32px;
+  height: 32px;
+  border: 4px solid #808080;
+  border-top: 4px solid #b6ff00;
+  border-radius: 50%;
+  animation: retro-spin 1s linear infinite;
+}
+
+/* Neon underline effect */
+.neon-underline {
+  position: relative;
+}
+
+.neon-underline::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 0 5px currentColor;
+}
+
+/* Cyberpunk success effect */
+.cyber-success {
+  color: #b6ff00;
+  text-shadow: 0 0 10px #b6ff00;
+  animation: cyber-success-pulse 1s ease-in-out;
+}
+
+@keyframes cyber-success-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Retro tab styling */
+.retro-tabs {
+  display: flex;
+  border-bottom: 2px solid #808080;
+}
+
+.retro-tab {
+  background: #c0c0c0;
+  border: 2px outset #c0c0c0;
+  border-bottom: none;
+  padding: 4px 12px;
+  font-family: "VT323", monospace;
+  font-size: 11px;
+  cursor: pointer;
+  margin-right: 2px;
+}
+
+.retro-tab.active {
+  background: #fff;
+  border-bottom: 2px solid #fff;
+  margin-bottom: -2px;
+}
+
+.retro-tab:not(.active):hover {
+  background: #e0e0e0;
+}
+
+/* Matrix background effect */
+.matrix-bg-effect {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.03;
+  background: repeating-linear-gradient(0deg, transparent, transparent 20px, #b6ff00 20px, #b6ff00 21px);
+  animation: matrix-scroll 20s linear infinite;
+}
+
+@keyframes matrix-scroll {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(100px);
+  }
+}
+
+/* Cyberpunk warning effect */
+.cyber-warning {
+  color: #ffbe00;
+  text-shadow: 0 0 10px #ffbe00;
+  animation: cyber-warning-blink 1s infinite;
+}
+
+@keyframes cyber-warning-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0.5;
+  }
+}
+
+/* Retro list styling */
+.retro-list {
+  background: #fff;
+  border: 2px inset #c0c0c0;
+  font-family: "VT323", monospace;
+  font-size: 11px;
+}
+
+.retro-list-item {
+  padding: 2px 4px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.retro-list-item:hover {
+  background: #000080;
+  color: white;
+}
+
+.retro-list-item.selected {
+  background: #000080;
+  color: white;
+}
+
+/* Neon border glow */
+.neon-border-glow {
+  border: 2px solid currentColor;
+  box-shadow: 0 0 5px currentColor, 0 0 10px currentColor, inset 0 0 5px currentColor;
+  animation: neon-border-pulse 2s ease-in-out infinite;
+}
+
+@keyframes neon-border-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 5px currentColor, 0 0 10px currentColor, inset 0 0 5px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor, inset 0 0 10px currentColor;
+  }
+}

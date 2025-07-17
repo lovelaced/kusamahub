@@ -1,0 +1,9 @@
+export declare const Wnd: Record<string, object>;
+export declare const WndAssethub: Record<string, object>;
+export declare const Dot: Record<string, object>;
+export declare const Ksm: Record<string, object>;
+export declare const DotAh: Record<string, object>;
+export declare const KsmAh: Record<string, object>;
+export declare const Pas: Record<string, object>;
+export declare const PasAh: Record<string, object>;
+export declare const Passet: Record<string, object>;
