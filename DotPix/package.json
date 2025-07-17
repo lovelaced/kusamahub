@@ -1,0 +1,26 @@
+{
+  "name": "dotpix",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "NODE_ENV=test npx hardhat test",
+    "compile": "npx hardhat compile",
+    "deploy:paseo": "npx hardhat ignition deploy ./ignition/modules/PixelCanvas.js --network passetHub",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "verify": "NODE_ENV=test npx hardhat test && cd frontend && npm run type-check"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@parity/hardhat-polkadot": "^0.1.8-p0",
+    "solc": "^0.8.28"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.0.0",
+    "dotenv": "^17.2.0",
+    "ethers": "^6.15.0"
+  }
+}
