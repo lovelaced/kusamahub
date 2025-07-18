@@ -4,11 +4,16 @@ import type React from "react"
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { motion } from "framer-motion"
-import { Play, Pause, RotateCcw, Zap, Crown } from "lucide-react"
+import { Play, Pause, RotateCcw, Zap, Crown, Wallet, Loader2, AlertCircle, ZoomIn, ZoomOut, Move } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Slider } from "@/components/ui/slider"
+import { Toggle } from "@/components/ui/toggle"
 import { useSoundContext } from "@/components/sound-provider"
+import { ethers } from "ethers"
+import { CONTRACT_ADDRESS, CONTRACT_ABI, NETWORK_CONFIG, CANVAS_CONFIG } from "@/lib/contracts/pixel-pillage"
 
 interface Pixel {
   x: number
@@ -19,94 +24,233 @@ interface Pixel {
   blockHeight: number
 }
 
-interface PixelEvent {
-  x: number
-  y: number
-  color: string
-  owner: string
-  timestamp: number
-  char: string
+// Color palette - DotPix uses full RGB colors, not indices
+const colorPalette = [
+  { hex: "#FFFFFF", name: "white" },
+  { hex: "#E4E4E4", name: "light grey" },
+  { hex: "#888888", name: "grey" },
+  { hex: "#222222", name: "black" },
+  { hex: "#FFA7D1", name: "pink" },
+  { hex: "#E50000", name: "red" },
+  { hex: "#E59500", name: "orange" },
+  { hex: "#A06A42", name: "brown" },
+  { hex: "#E5D900", name: "yellow" },
+  { hex: "#94E044", name: "lime" },
+  { hex: "#02BE01", name: "green" },
+  { hex: "#00D3DD", name: "cyan" },
+  { hex: "#0083C7", name: "blue" },
+  { hex: "#0000EA", name: "dark blue" },
+  { hex: "#CF6EE4", name: "purple" },
+  { hex: "#820080", name: "dark purple" },
+  // Cyberpunk theme colors
+  { hex: "#b6ff00", name: "toxic slime" },
+  { hex: "#ff006e", name: "laser berry" },
+  { hex: "#00faff", name: "aqua glitch" },
+  { hex: "#ffbe00", name: "amber crt" },
+]
+
+declare global {
+  interface Window {
+    ethereum?: any
+  }
 }
-
-const toxicPalette = [
-  "#b6ff00", // toxic slime
-  "#ff006e", // laser berry
-  "#00faff", // aqua glitch
-  "#ffbe00", // amber crt
-  "#d9d9d9", // ghost grey
-  "#8c8c8c", // soda chrome
-  "#050006", // midnight void
-  "#ffffff", // pure white
-]
-
-const leaderboardData = [
-  { address: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", pixels: 420, avatar: "🦄" },
-  { address: "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty", pixels: 337, avatar: "🐙" },
-  { address: "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y", pixels: 256, avatar: "🤖" },
-  { address: "5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy", pixels: 189, avatar: "👾" },
-  { address: "5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw", pixels: 142, avatar: "🎮" },
-]
 
 export default function PixelPillage() {
   const { playSound } = useSoundContext()
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [pixels, setPixels] = useState<Pixel[]>([])
-  const [selectedPixel, setSelectedPixel] = useState<{ x: number; y: number } | null>(null)
-  const [selectedColor, setSelectedColor] = useState(toxicPalette[0])
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null)
+  const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null)
+  const [contract, setContract] = useState<ethers.Contract | null>(null)
+  const [userAddress, setUserAddress] = useState<string>("")
+  const [connected, setConnected] = useState(false)
+  
+  // Canvas state
+  const [pixels, setPixels] = useState<Map<string, Pixel>>(new Map())
+  const [selectedPixels, setSelectedPixels] = useState<Set<string>>(new Set())
+  const [selectedColor, setSelectedColor] = useState(colorPalette[16]) // Default to toxic slime
   const [isPlacing, setIsPlacing] = useState(false)
-  const [showTimeLapse, setShowTimeLapse] = useState(false)
-  const [timeLapseEvents, setTimeLapseEvents] = useState<PixelEvent[]>([])
-  const [timeLapseIndex, setTimeLapseIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [blockHeight, setBlockHeight] = useState(1234567)
-  const [zoom, setZoom] = useState(4)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+  
+  // View state
+  const [zoom, setZoom] = useState(0.5)
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 })
+  const [showGrid, setShowGrid] = useState(true)
+  const [hoveredPixel, setHoveredPixel] = useState<{ x: number; y: number } | null>(null)
+  
+  // Stats
+  const [totalPixelsPlaced, setTotalPixelsPlaced] = useState(0)
+  const [userPixelCount, setUserPixelCount] = useState(0)
+  const [estimatedFee, setEstimatedFee] = useState("0")
 
-  // Mock wallet address
-  const walletAddress = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
-
-  // Initialize canvas with some random pixels
-  useEffect(() => {
-    const initialPixels: Pixel[] = []
-    const initialEvents: PixelEvent[] = []
-
-    for (let i = 0; i < 200; i++) {
-      const x = Math.floor(Math.random() * 128)
-      const y = Math.floor(Math.random() * 128)
-      const color = toxicPalette[Math.floor(Math.random() * toxicPalette.length)]
-      const timestamp = Date.now() - Math.random() * 86400000 // Random time in last 24h
-      const blockHeight = 1234567 - Math.floor(Math.random() * 1000)
-
-      const pixel: Pixel = {
-        x,
-        y,
-        color,
-        owner: leaderboardData[Math.floor(Math.random() * leaderboardData.length)].address,
-        timestamp,
-        blockHeight,
+  // Connect wallet
+  const connectWallet = async () => {
+    try {
+      setError("")
+      if (typeof window.ethereum === "undefined") {
+        setError("MetaMask is not installed. Please install MetaMask to use this dApp.")
+        return
       }
 
-      initialPixels.push(pixel)
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
+      const userAddr = accounts[0]
+      setUserAddress(userAddr)
 
-      // Create ASCII rain event
-      const chars = ["█", "▓", "▒", "░", "●", "◆", "▲", "♦"]
-      initialEvents.push({
-        ...pixel,
-        char: chars[Math.floor(Math.random() * chars.length)],
-      })
+      const prov = new ethers.BrowserProvider(window.ethereum)
+      const sign = await prov.getSigner()
+      setProvider(prov)
+      setSigner(sign)
+
+      // Switch to correct network
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: NETWORK_CONFIG.chainId }],
+        })
+      } catch (switchError: any) {
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [NETWORK_CONFIG],
+          })
+        }
+      }
+
+      const contr = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, sign)
+      setContract(contr)
+      setConnected(true)
+
+      setSuccess("Wallet connected successfully!")
+      setTimeout(() => setSuccess(""), 3000)
+    } catch (err: any) {
+      setError(`Failed to connect wallet: ${err.message}`)
+    }
+  }
+
+  // Load canvas data from blockchain
+  const loadCanvasData = async () => {
+    if (!contract || !provider) return
+    
+    setLoading(true)
+    try {
+      // Get past events to build canvas state
+      const filter = contract.filters.PixelPlaced()
+      const events = await contract.queryFilter(filter, -10000) // Last 10k blocks
+      
+      const newPixels = new Map<string, Pixel>()
+      
+      for (const event of events) {
+        const args = event.args
+        if (args) {
+          // Get coordinates from pixelId
+          const pixelId = Number(args.pixelId)
+          const coords = await contract.getPixelCoordinates(pixelId)
+          const x = Number(coords.x)
+          const y = Number(coords.y)
+          const key = `${x}-${y}`
+          
+          // Convert uint32 color to hex
+          const colorHex = `#${args.color.toString(16).padStart(6, '0')}`
+          
+          newPixels.set(key, {
+            x,
+            y,
+            color: colorHex,
+            owner: args.owner,
+            timestamp: Number(args.timestamp) * 1000,
+            blockHeight: event.blockNumber,
+          })
+        }
+      }
+      
+      setPixels(newPixels)
+      setTotalPixelsPlaced(newPixels.size)
+      
+      if (userAddress) {
+        const userPixels = Array.from(newPixels.values()).filter(
+          p => p.owner.toLowerCase() === userAddress.toLowerCase()
+        )
+        setUserPixelCount(userPixels.length)
+      }
+    } catch (err: any) {
+      console.error("Error loading canvas:", err)
+      setError("Failed to load canvas data")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Load canvas when connected
+  useEffect(() => {
+    if (connected) {
+      loadCanvasData()
+    }
+  }, [connected, contract])
+
+  // Listen for new pixel events
+  useEffect(() => {
+    if (!contract) return
+
+    const handlePixelPlaced = async (pixelId: bigint, owner: string, color: number, fee: bigint, timestamp: bigint, event: any) => {
+      try {
+        const coords = await contract.getPixelCoordinates(pixelId)
+        const x = Number(coords.x)
+        const y = Number(coords.y)
+        const key = `${x}-${y}`
+        
+        // Convert uint32 color to hex
+        const colorHex = `#${color.toString(16).padStart(6, '0')}`
+        
+        setPixels(prev => {
+          const newPixels = new Map(prev)
+          newPixels.set(key, {
+            x,
+            y,
+            color: colorHex,
+            owner,
+            timestamp: Number(timestamp) * 1000,
+            blockHeight: event.blockNumber,
+          })
+          return newPixels
+        })
+        
+        if (owner.toLowerCase() === userAddress.toLowerCase()) {
+          setUserPixelCount(prev => prev + 1)
+        }
+        setTotalPixelsPlaced(prev => prev + 1)
+      } catch (err) {
+        console.error("Error handling pixel placed event:", err)
+      }
     }
 
-    setPixels(initialPixels)
-    setTimeLapseEvents(initialEvents.sort((a, b) => a.timestamp - b.timestamp))
-  }, [])
+    contract.on("PixelPlaced", handlePixelPlaced)
+    return () => {
+      contract.off("PixelPlaced", handlePixelPlaced)
+    }
+  }, [contract, userAddress])
 
-  // Mock block height updates
+  // Calculate fee for selected pixels
   useEffect(() => {
-    const interval = setInterval(() => {
-      setBlockHeight((prev) => prev + 1)
-    }, 6000)
-
-    return () => clearInterval(interval)
-  }, [])
+    const calculateFee = async () => {
+      if (!contract || selectedPixels.size === 0) {
+        setEstimatedFee("0")
+        return
+      }
+      
+      try {
+        const fee = await contract.calculatePixelFee(selectedPixels.size)
+        setEstimatedFee(ethers.formatEther(fee))
+      } catch (err) {
+        console.error("Error calculating fee:", err)
+      }
+    }
+    
+    calculateFee()
+  }, [contract, selectedPixels.size])
 
   // Draw canvas
   const drawCanvas = useCallback(() => {
@@ -118,7 +262,29 @@ export default function PixelPillage() {
 
     // Clear canvas
     ctx.fillStyle = "#050006"
-    ctx.fillRect(0, 0, 128, 128)
+    ctx.fillRect(0, 0, CANVAS_CONFIG.width, CANVAS_CONFIG.height)
+
+    // Draw grid if enabled
+    if (showGrid && zoom > 0.1) {
+      ctx.strokeStyle = "#1a1a1a"
+      ctx.lineWidth = 1
+      
+      // Draw vertical lines
+      for (let x = 0; x <= CANVAS_CONFIG.width; x += 10) {
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, CANVAS_CONFIG.height)
+        ctx.stroke()
+      }
+      
+      // Draw horizontal lines
+      for (let y = 0; y <= CANVAS_CONFIG.height; y += 10) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(CANVAS_CONFIG.width, y)
+        ctx.stroke()
+      }
+    }
 
     // Draw pixels
     pixels.forEach((pixel) => {
@@ -126,131 +292,199 @@ export default function PixelPillage() {
       ctx.fillRect(pixel.x, pixel.y, 1, 1)
     })
 
-    // Highlight selected pixel
-    if (selectedPixel) {
+    // Highlight selected pixels
+    ctx.strokeStyle = "#b6ff00"
+    ctx.lineWidth = 1
+    selectedPixels.forEach(key => {
+      const [x, y] = key.split('-').map(Number)
+      ctx.strokeRect(x, y, 1, 1)
+    })
+    
+    // Highlight hovered pixel
+    if (hoveredPixel && zoom > 0.2) {
       ctx.strokeStyle = "#ffffff"
       ctx.lineWidth = 0.5
-      ctx.strokeRect(selectedPixel.x - 0.5, selectedPixel.y - 0.5, 2, 2)
+      ctx.strokeRect(hoveredPixel.x, hoveredPixel.y, 1, 1)
     }
-  }, [pixels, selectedPixel])
+  }, [pixels, selectedPixels, hoveredPixel, showGrid, zoom])
 
   useEffect(() => {
     drawCanvas()
   }, [drawCanvas])
 
-  // Handle canvas click
-  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  // Handle canvas interaction
+  const handleCanvasMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (event.button === 2 || event.button === 1) { // Right or middle click
+      setIsPanning(true)
+      setLastMousePos({ x: event.clientX, y: event.clientY })
+      event.preventDefault()
+    } else if (event.button === 0) { // Left click
+      const canvas = canvasRef.current
+      if (!canvas) return
+
+      const rect = canvas.getBoundingClientRect()
+      const scaleX = CANVAS_CONFIG.width / (rect.width / zoom)
+      const scaleY = CANVAS_CONFIG.height / (rect.height / zoom)
+
+      const x = Math.floor(((event.clientX - rect.left) / zoom - panOffset.x) * scaleX)
+      const y = Math.floor(((event.clientY - rect.top) / zoom - panOffset.y) * scaleY)
+
+      if (x >= 0 && x < CANVAS_CONFIG.width && y >= 0 && y < CANVAS_CONFIG.height) {
+        const key = `${x}-${y}`
+        
+        if (event.shiftKey || selectedPixels.size > 0) {
+          // Multi-select mode
+          setSelectedPixels(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(key)) {
+              newSet.delete(key)
+            } else if (newSet.size < CANVAS_CONFIG.maxBatchSize) {
+              newSet.add(key)
+            }
+            return newSet
+          })
+        } else {
+          // Single select mode
+          setSelectedPixels(new Set([key]))
+        }
+        
+        playSound("click")
+      }
+    }
+  }
+
+  const handleCanvasMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
 
     const rect = canvas.getBoundingClientRect()
-    const scaleX = 128 / rect.width
-    const scaleY = 128 / rect.height
+    const scaleX = CANVAS_CONFIG.width / (rect.width / zoom)
+    const scaleY = CANVAS_CONFIG.height / (rect.height / zoom)
 
-    const x = Math.floor((event.clientX - rect.left) * scaleX)
-    const y = Math.floor((event.clientY - rect.top) * scaleY)
+    const x = Math.floor(((event.clientX - rect.left) / zoom - panOffset.x) * scaleX)
+    const y = Math.floor(((event.clientY - rect.top) / zoom - panOffset.y) * scaleY)
 
-    setSelectedPixel({ x, y })
+    if (x >= 0 && x < CANVAS_CONFIG.width && y >= 0 && y < CANVAS_CONFIG.height) {
+      setHoveredPixel({ x, y })
+    } else {
+      setHoveredPixel(null)
+    }
+
+    if (isPanning) {
+      const deltaX = event.clientX - lastMousePos.x
+      const deltaY = event.clientY - lastMousePos.y
+      
+      setPanOffset(prev => ({
+        x: prev.x + deltaX / zoom,
+        y: prev.y + deltaY / zoom
+      }))
+      
+      setLastMousePos({ x: event.clientX, y: event.clientY })
+    }
   }
 
-  // Place pixel
-  const placePixel = async () => {
-    if (!selectedPixel) return
+  const handleCanvasMouseUp = () => {
+    setIsPanning(false)
+  }
+
+  const handleCanvasWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
+    event.preventDefault()
+    
+    const delta = event.deltaY > 0 ? 0.9 : 1.1
+    const newZoom = Math.max(0.1, Math.min(5, zoom * delta))
+    
+    setZoom(newZoom)
+  }
+
+  // Prevent context menu on right click
+  useEffect(() => {
+    const handleContextMenu = (e: Event) => {
+      if (e.target === canvasRef.current) {
+        e.preventDefault()
+      }
+    }
+    
+    document.addEventListener('contextmenu', handleContextMenu)
+    return () => document.removeEventListener('contextmenu', handleContextMenu)
+  }, [])
+
+  // Place pixels
+  const placePixels = async () => {
+    if (!contract || selectedPixels.size === 0) return
 
     setIsPlacing(true)
-    playSound("pixel")
-
-    // Simulate transaction
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    const newPixel: Pixel = {
-      x: selectedPixel.x,
-      y: selectedPixel.y,
-      color: selectedColor,
-      owner: walletAddress,
-      timestamp: Date.now(),
-      blockHeight,
-    }
-
-    // Remove existing pixel at this position
-    setPixels((prev) => prev.filter((p) => !(p.x === selectedPixel.x && p.y === selectedPixel.y)))
-
-    // Add new pixel
-    setPixels((prev) => [...prev, newPixel])
-
-    // Add to time-lapse events
-    const chars = ["█", "▓", "▒", "░", "●", "◆", "▲", "♦"]
-    const newEvent: PixelEvent = {
-      ...newPixel,
-      char: chars[Math.floor(Math.random() * chars.length)],
-    }
-    setTimeLapseEvents((prev) => [...prev, newEvent].sort((a, b) => a.timestamp - b.timestamp))
-
-    playSound("success")
-    setSelectedPixel(null)
-    setIsPlacing(false)
-  }
-
-  // Time-lapse playback
-  useEffect(() => {
-    if (!isPlaying || !showTimeLapse) return
-
-    const interval = setInterval(() => {
-      setTimeLapseIndex((prev) => {
-        if (prev >= timeLapseEvents.length - 1) {
-          setIsPlaying(false)
-          return prev
-        }
-        return prev + 1
+    setError("")
+    
+    try {
+      const pixelArray = Array.from(selectedPixels).map(key => {
+        const [x, y] = key.split('-').map(Number)
+        return { x, y }
       })
-    }, 100)
-
-    return () => clearInterval(interval)
-  }, [isPlaying, showTimeLapse, timeLapseEvents.length])
-
-  // Draw ASCII rain
-  const drawASCIIRain = useCallback(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    // Clear canvas
-    ctx.fillStyle = "#050006"
-    ctx.fillRect(0, 0, 128, 128)
-
-    // Draw events up to current index
-    const eventsToShow = timeLapseEvents.slice(0, timeLapseIndex + 1)
-
-    ctx.font = "1px monospace"
-    ctx.textAlign = "center"
-
-    eventsToShow.forEach((event, index) => {
-      const opacity = Math.max(0.3, 1 - (timeLapseIndex - index) / 50)
-      ctx.fillStyle =
-        event.color +
-        Math.floor(opacity * 255)
-          .toString(16)
-          .padStart(2, "0")
-      ctx.fillText(event.char, event.x + 0.5, event.y + 0.8)
-    })
-  }, [timeLapseEvents, timeLapseIndex])
-
-  useEffect(() => {
-    if (showTimeLapse) {
-      drawASCIIRain()
-    } else {
-      drawCanvas()
+      
+      // Convert hex color to uint32
+      const colorInt = parseInt(selectedColor.hex.replace('#', ''), 16)
+      
+      if (pixelArray.length === 1) {
+        // Single pixel - get pixelId from coordinates
+        const pixelId = await contract.getPixelId(pixelArray[0].x, pixelArray[0].y)
+        const fee = await contract.calculatePixelFee(1)
+        
+        const tx = await contract.placePixel(
+          pixelId,
+          colorInt,
+          { value: fee }
+        )
+        
+        setSuccess("Placing pixel...")
+        await tx.wait()
+      } else {
+        // Batch pixels - convert coordinates to pixelIds
+        const pixelIds = await Promise.all(
+          pixelArray.map(p => contract.getPixelId(p.x, p.y))
+        )
+        const colors = new Array(pixelArray.length).fill(colorInt)
+        
+        const fee = await contract.calculatePixelFee(pixelArray.length)
+        
+        const tx = await contract.placePixelsBatch(
+          pixelIds,
+          colors,
+          { value: fee }
+        )
+        
+        setSuccess(`Placing ${pixelArray.length} pixels...`)
+        await tx.wait()
+      }
+      
+      playSound("success")
+      setSuccess("Pixels placed successfully! 🎨")
+      setSelectedPixels(new Set())
+      
+      setTimeout(() => setSuccess(""), 3000)
+    } catch (err: any) {
+      playSound("error")
+      setError(`Failed to place pixels: ${err.message}`)
+    } finally {
+      setIsPlacing(false)
     }
-  }, [showTimeLapse, drawASCIIRain, drawCanvas])
-
-  const resetTimeLapse = () => {
-    setTimeLapseIndex(0)
-    setIsPlaying(false)
   }
 
-  const existingPixel = pixels.find((p) => p.x === selectedPixel?.x && p.y === selectedPixel?.y)
+  // Get leaderboard data
+  const getLeaderboard = () => {
+    const ownerCounts = new Map<string, number>()
+    
+    pixels.forEach(pixel => {
+      const count = ownerCounts.get(pixel.owner) || 0
+      ownerCounts.set(pixel.owner, count + 1)
+    })
+    
+    return Array.from(ownerCounts.entries())
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10)
+      .map(([address, count]) => ({ address, pixels: count }))
+  }
+
+  const leaderboard = getLeaderboard()
 
   return (
     <div className="min-h-screen bg-midnight-void text-ghost-grey pt-20 px-4">
@@ -263,206 +497,309 @@ export default function PixelPillage() {
           transition={{ duration: 0.6 }}
         >
           <h1 className="text-4xl md:text-6xl font-orbitron font-black text-toxic-slime mb-4">pixel pillage</h1>
-          <p className="text-soda-chrome font-vt323 text-lg">shared canvas chaos // every pixel a revolution</p>
-          <div className="flex items-center justify-center space-x-4 mt-4">
-            <Badge variant="outline" className="border-amber-crt text-amber-crt font-vt323">
-              block {blockHeight.toLocaleString()}
-            </Badge>
-            <Badge variant="outline" className="border-aqua-glitch text-aqua-glitch font-vt323">
-              {pixels.length} pixels placed
-            </Badge>
-          </div>
+          <p className="text-soda-chrome font-vt323 text-lg mb-2">
+            {CANVAS_CONFIG.width}×{CANVAS_CONFIG.height} collaborative canvas • claim your pixels on-chain
+          </p>
+          <p className="text-ghost-grey font-vt323 text-sm">
+            right-click to pan • scroll to zoom • shift+click for multi-select
+          </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Canvas */}
-          <div className="lg:col-span-3">
-            <Card className="bg-midnight-void border-2 border-toxic-slime/50 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-orbitron font-bold text-lg text-ghost-grey">128×128 canvas</h3>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setShowTimeLapse(!showTimeLapse)
-                      if (!showTimeLapse) resetTimeLapse()
-                    }}
-                    className="text-aqua-glitch hover:text-aqua-glitch font-vt323"
-                  >
-                    <RotateCcw className="w-4 h-4 mr-1" />
-                    rewind the vandalism
-                  </Button>
-                </div>
-              </div>
+        {/* Alerts */}
+        {error && (
+          <Alert className="mb-4 max-w-2xl mx-auto border-laser-berry bg-laser-berry/10">
+            <AlertCircle className="h-4 w-4 text-laser-berry" />
+            <AlertTitle className="text-laser-berry">Error</AlertTitle>
+            <AlertDescription className="text-ghost-grey">{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {success && (
+          <Alert className="mb-4 max-w-2xl mx-auto border-toxic-slime bg-toxic-slime/10">
+            <Zap className="h-4 w-4 text-toxic-slime" />
+            <AlertTitle className="text-toxic-slime">Success</AlertTitle>
+            <AlertDescription className="text-ghost-grey">{success}</AlertDescription>
+          </Alert>
+        )}
 
-              <div className="relative">
-                <canvas
-                  ref={canvasRef}
-                  width={128}
-                  height={128}
-                  onClick={handleCanvasClick}
-                  className="border border-soda-chrome/30 rounded bg-midnight-void cursor-crosshair"
-                  style={{
-                    width: "100%",
-                    maxWidth: "512px",
-                    height: "auto",
-                    imageRendering: "pixelated",
-                  }}
-                />
+        {/* Connect Wallet */}
+        {!connected && (
+          <Card className="mb-8 max-w-2xl mx-auto bg-midnight-void/80 border-soda-chrome/30">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Wallet className="w-16 h-16 text-toxic-slime mb-4" />
+              <h3 className="text-xl font-orbitron text-toxic-slime mb-2">Connect Your Wallet</h3>
+              <p className="text-soda-chrome mb-4">Connect to Paseo TestNet to start placing pixels</p>
+              <Button
+                onClick={connectWallet}
+                size="lg"
+                className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/80"
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Connect MetaMask
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
-                {selectedPixel && !showTimeLapse && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="absolute top-2 left-2 bg-midnight-void/90 border border-toxic-slime/50 rounded p-2 text-xs font-vt323"
-                  >
-                    pixel ({selectedPixel.x}, {selectedPixel.y})
-                    {existingPixel && (
-                      <div className="text-soda-chrome">
-                        owned by {existingPixel.owner.slice(0, 6)}...{existingPixel.owner.slice(-4)}
+        {connected && (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            {/* Canvas */}
+            <div className="lg:col-span-3">
+              <Card className="bg-midnight-void/80 border-soda-chrome/30">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-toxic-slime font-orbitron flex items-center">
+                      <Move className="w-5 h-5 mr-2" />
+                      Canvas View
+                    </CardTitle>
+                    <div className="flex items-center space-x-2">
+                      <Toggle
+                        pressed={showGrid}
+                        onPressedChange={setShowGrid}
+                        size="sm"
+                        className="data-[state=on]:bg-toxic-slime/20 data-[state=on]:text-toxic-slime"
+                      >
+                        Grid
+                      </Toggle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setZoom(Math.min(5, zoom * 1.2))}
+                        className="text-aqua-glitch hover:text-aqua-glitch"
+                      >
+                        <ZoomIn className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setZoom(Math.max(0.1, zoom * 0.8))}
+                        className="text-aqua-glitch hover:text-aqua-glitch"
+                      >
+                        <ZoomOut className="w-4 h-4" />
+                      </Button>
+                      <span className="text-xs font-vt323 text-soda-chrome">
+                        {Math.round(zoom * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="relative overflow-hidden bg-midnight-void rounded-lg border border-soda-chrome/30" ref={containerRef}>
+                    {loading && (
+                      <div className="absolute inset-0 bg-midnight-void/80 flex items-center justify-center z-10">
+                        <div className="text-center">
+                          <Loader2 className="w-8 h-8 animate-spin text-toxic-slime mx-auto mb-2" />
+                          <p className="text-soda-chrome font-vt323">loading canvas data...</p>
+                        </div>
                       </div>
                     )}
-                  </motion.div>
-                )}
+                    
+                    <canvas
+                      ref={canvasRef}
+                      width={CANVAS_CONFIG.width}
+                      height={CANVAS_CONFIG.height}
+                      onMouseDown={handleCanvasMouseDown}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseUp={handleCanvasMouseUp}
+                      onMouseLeave={handleCanvasMouseUp}
+                      onWheel={handleCanvasWheel}
+                      className="cursor-crosshair"
+                      style={{
+                        width: CANVAS_CONFIG.width * zoom + 'px',
+                        height: CANVAS_CONFIG.height * zoom + 'px',
+                        transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                        imageRendering: 'pixelated',
+                      }}
+                    />
 
-                {showTimeLapse && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="absolute inset-0 bg-midnight-void/80 flex items-center justify-center rounded"
-                  >
-                    <div className="text-center space-y-4">
-                      <div className="text-toxic-slime font-vt323 text-lg">ascii rain playback</div>
-                      <div className="text-soda-chrome font-vt323 text-sm">
-                        {timeLapseIndex + 1} / {timeLapseEvents.length} events
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setIsPlaying(!isPlaying)}
-                          className="text-aqua-glitch hover:text-aqua-glitch"
-                        >
-                          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={resetTimeLapse}
-                          className="text-laser-berry hover:text-laser-berry"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-
-              {selectedPixel && !showTimeLapse && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 flex items-center justify-between"
-                >
-                  <div className="text-xs text-soda-chrome font-vt323">overwrite responsibly-ish. cost: 0.0001 KSM</div>
-                  <Button
-                    onClick={placePixel}
-                    disabled={isPlacing}
-                    className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/90 font-vt323"
-                  >
-                    <Zap className="w-4 h-4 mr-1" />
-                    {isPlacing ? "placing..." : "place pixel"}
-                  </Button>
-                </motion.div>
-              )}
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Color Palette */}
-            <Card className="bg-midnight-void border-2 border-laser-berry/50 p-6">
-              <h3 className="font-orbitron font-bold text-lg text-ghost-grey mb-4">toxic palette</h3>
-              <div className="grid grid-cols-4 gap-2">
-                {toxicPalette.map((color) => (
-                  <motion.button
-                    key={color}
-                    onClick={() => {
-                      setSelectedColor(color)
-                      playSound("click")
-                    }}
-                    className={`w-8 h-8 rounded border-2 transition-all ${
-                      selectedColor === color ? "border-toxic-slime scale-110" : "border-soda-chrome/30"
-                    }`}
-                    style={{ backgroundColor: color }}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onMouseEnter={() => playSound("hover")}
-                  />
-                ))}
-              </div>
-              <div className="mt-3 text-xs font-vt323 text-soda-chrome">selected: {selectedColor}</div>
-            </Card>
-
-            {/* Leaderboard */}
-            <Card className="bg-midnight-void border-2 border-aqua-glitch/50 p-6">
-              <h3 className="font-orbitron font-bold text-lg text-ghost-grey mb-4">pixel lords</h3>
-              <div className="space-y-3">
-                {leaderboardData.map((user, index) => (
-                  <motion.div
-                    key={user.address}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center space-x-3 bg-midnight-void/50 border border-soda-chrome/30 rounded p-3"
-                  >
-                    <div className="flex items-center space-x-2">
-                      {index === 0 && <Crown className="w-4 h-4 text-toxic-slime" />}
+                    {hoveredPixel && (
                       <motion.div
-                        className="text-lg"
-                        animate={{ rotate: [0, 5, -5, 0] }}
-                        transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, delay: index * 0.5 }}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="absolute top-2 left-2 bg-midnight-void/90 border border-toxic-slime/50 rounded p-2 text-xs font-vt323 pointer-events-none"
                       >
-                        {user.avatar}
+                        <div>pixel ({hoveredPixel.x}, {hoveredPixel.y})</div>
+                        {(() => {
+                          const key = `${hoveredPixel.x}-${hoveredPixel.y}`
+                          const pixel = pixels.get(key)
+                          return pixel ? (
+                            <div className="text-soda-chrome mt-1">
+                              owner: {pixel.owner.slice(0, 6)}...{pixel.owner.slice(-4)}
+                            </div>
+                          ) : (
+                            <div className="text-aqua-glitch mt-1">unclaimed</div>
+                          )
+                        })()}
                       </motion.div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-vt323 text-xs text-ghost-grey truncate">
-                        {user.address.slice(0, 8)}...{user.address.slice(-6)}
-                      </div>
-                      <div className="font-vt323 text-xs text-aqua-glitch">{user.pixels} pixels</div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </Card>
+                    )}
+                  </div>
 
-            {/* Stats */}
-            <Card className="bg-midnight-void border-2 border-amber-crt/50 p-6">
-              <h3 className="font-orbitron font-bold text-lg text-ghost-grey mb-4">canvas stats</h3>
-              <div className="space-y-3 font-vt323 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-soda-chrome">total pixels:</span>
-                  <span className="text-ghost-grey">{pixels.length}/16,384</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-soda-chrome">coverage:</span>
-                  <span className="text-ghost-grey">{((pixels.length / 16384) * 100).toFixed(1)}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-soda-chrome">your pixels:</span>
-                  <span className="text-toxic-slime">{pixels.filter((p) => p.owner === walletAddress).length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-soda-chrome">last update:</span>
-                  <span className="text-ghost-grey">block {blockHeight.toLocaleString()}</span>
-                </div>
-              </div>
-            </Card>
+                  {selectedPixels.size > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-vt323 text-soda-chrome">
+                          {selectedPixels.size} pixel{selectedPixels.size > 1 ? 's' : ''} selected
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedPixels(new Set())}
+                          className="text-laser-berry hover:text-laser-berry font-vt323"
+                        >
+                          clear selection
+                        </Button>
+                      </div>
+                      
+                      <div className="bg-midnight-void/50 border border-soda-chrome/30 rounded p-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-vt323 text-soda-chrome">estimated cost:</span>
+                          <span className="text-sm font-vt323 text-toxic-slime">{estimatedFee} PAS</span>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        onClick={placePixels}
+                        disabled={isPlacing || selectedPixels.size === 0}
+                        className="w-full bg-toxic-slime text-midnight-void hover:bg-toxic-slime/90 font-vt323"
+                      >
+                        <Zap className="w-4 h-4 mr-2" />
+                        {isPlacing ? "placing pixels..." : `place ${selectedPixels.size} pixel${selectedPixels.size > 1 ? 's' : ''}`}
+                      </Button>
+                      
+                      {selectedPixels.size > 1 && (
+                        <p className="text-xs text-amber-crt font-vt323 text-center">
+                          batch placement saves gas! ({CANVAS_CONFIG.maxBatchSize} max)
+                        </p>
+                      )}
+                    </motion.div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Color Palette */}
+              <Card className="bg-midnight-void/80 border-soda-chrome/30">
+                <CardHeader>
+                  <CardTitle className="text-laser-berry font-orbitron text-lg">Color Palette</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-4 gap-2">
+                    {colorPalette.map((color) => (
+                      <motion.button
+                        key={color.hex}
+                        onClick={() => {
+                          setSelectedColor(color)
+                          playSound("click")
+                        }}
+                        className={`w-full aspect-square rounded border-2 transition-all relative group ${
+                          selectedColor.hex === color.hex ? "border-toxic-slime scale-110" : "border-soda-chrome/30"
+                        }`}
+                        style={{ backgroundColor: color.hex }}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        onMouseEnter={() => playSound("hover")}
+                      >
+                        <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-midnight-void/80 text-xs font-vt323 text-ghost-grey rounded">
+                          {color.name}
+                        </span>
+                      </motion.button>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-xs font-vt323 text-soda-chrome">
+                    selected: <span className="text-ghost-grey">{selectedColor.name}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Leaderboard */}
+              <Card className="bg-midnight-void/80 border-soda-chrome/30">
+                <CardHeader>
+                  <CardTitle className="text-aqua-glitch font-orbitron text-lg flex items-center">
+                    <Crown className="w-5 h-5 mr-2" />
+                    Pixel Lords
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {leaderboard.length > 0 ? (
+                    <div className="space-y-2">
+                      {leaderboard.map((user, index) => (
+                        <motion.div
+                          key={user.address}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="flex items-center justify-between p-2 rounded bg-midnight-void/50 border border-soda-chrome/20"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <span className={`font-orbitron text-sm ${
+                              index === 0 ? "text-toxic-slime" :
+                              index === 1 ? "text-aqua-glitch" :
+                              index === 2 ? "text-laser-berry" :
+                              "text-soda-chrome"
+                            }`}>
+                              #{index + 1}
+                            </span>
+                            <span className="font-vt323 text-xs text-ghost-grey">
+                              {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                            </span>
+                          </div>
+                          <span className="font-vt323 text-sm text-toxic-slime">
+                            {user.pixels}
+                          </span>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-soda-chrome font-vt323 py-8">No pixels placed yet</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Stats */}
+              <Card className="bg-midnight-void/80 border-soda-chrome/30">
+                <CardHeader>
+                  <CardTitle className="text-amber-crt font-orbitron text-lg">Canvas Stats</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 font-vt323 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-soda-chrome">canvas size:</span>
+                      <span className="text-ghost-grey">{CANVAS_CONFIG.width}×{CANVAS_CONFIG.height}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-soda-chrome">total pixels:</span>
+                      <span className="text-ghost-grey">{totalPixelsPlaced.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-soda-chrome">coverage:</span>
+                      <span className="text-ghost-grey">
+                        {((totalPixelsPlaced / (CANVAS_CONFIG.width * CANVAS_CONFIG.height)) * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-soda-chrome">your pixels:</span>
+                      <span className="text-toxic-slime">{userPixelCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-soda-chrome">base fee:</span>
+                      <span className="text-ghost-grey">{CANVAS_CONFIG.basePixelFee} PAS</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-soda-chrome">burn rate:</span>
+                      <span className="text-laser-berry">{CANVAS_CONFIG.burnPercentage}%</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
