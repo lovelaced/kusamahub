@@ -1,162 +1,369 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Flame, Coins, TrendingUp, Users, Zap, AlertTriangle } from "lucide-react"
+import { motion } from "framer-motion"
+import { Flame, Clock, Trophy, Users, AlertCircle, Wallet, TrendingUp, Sparkles, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { useSoundContext } from "@/components/sound-provider"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { ethers } from "ethers"
+import { CONTRACT_ADDRESS, CONTRACT_ABI, NETWORK_CONFIG } from "@/lib/contracts/big-wick-game"
 
-interface Auction {
-  id: string
-  title: string
-  description: string
-  currentBid: number
-  bidder: string
-  jackpot: number
-  timeRemaining: number
-  totalTime: number
-  participants: number
-  status: "active" | "ending" | "ended"
-  wickHeight: number
+interface GameData {
+  gameId: number
+  startTime: number
+  endingPeriodStart: number
+  endTime: number
+  totalPot: bigint
+  treasuryFund: bigint
+  winner: string
+  state: number
+  candleEnd: number
+  finalized: boolean
 }
 
-interface Bid {
-  id: string
-  bidder: string
-  amount: number
+interface PlayerData {
+  totalBid: bigint
+  bidCount: number
+  lastBidTime: number
+  exists: boolean
+}
+
+interface BidEvent {
+  player: string
+  amount: bigint
+  totalBid: bigint
   timestamp: number
+  txHash: string
 }
 
-export default function BigWicks() {
-  const { playSound } = useSoundContext()
-  const [currentAuction, setCurrentAuction] = useState<Auction>({
-    id: "auction_1",
-    title: "Mystery Jackpot #42",
-    description: "Unknown prize pool. Candle burns randomly. Last bidder wins all.",
-    currentBid: 12.5,
-    bidder: "0xwhale420",
-    jackpot: 156.78,
-    timeRemaining: 45000, // milliseconds
-    totalTime: 120000,
-    participants: 23,
-    status: "active",
-    wickHeight: 75,
-  })
+declare global {
+  interface Window {
+    ethereum?: any
+  }
+}
 
+const GameStates = ["Not Started", "Starting Period", "Ending Period", "Ended"]
+
+export default function BigWicksGame() {
+  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null)
+  const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null)
+  const [contract, setContract] = useState<ethers.Contract | null>(null)
+  const [userAddress, setUserAddress] = useState<string>("")
+  const [isOwner, setIsOwner] = useState(false)
+  const [connected, setConnected] = useState(false)
+  
+  // Game state
+  const [currentGameId, setCurrentGameId] = useState<number>(0)
+  const [gameData, setGameData] = useState<GameData | null>(null)
+  const [playerData, setPlayerData] = useState<PlayerData | null>(null)
+  const [playerCount, setPlayerCount] = useState(0)
+  const [timeRemaining, setTimeRemaining] = useState<string>("")
+  const [gamePhase, setGamePhase] = useState<string>("Not Started")
+  
+  // UI state
   const [bidAmount, setBidAmount] = useState("")
-  const [recentBids, setRecentBids] = useState<Bid[]>([
-    { id: "1", bidder: "0xwhale420", amount: 12.5, timestamp: Date.now() - 30000 },
-    { id: "2", bidder: "0xdegen88", amount: 11.2, timestamp: Date.now() - 60000 },
-    { id: "3", bidder: "0xlucky77", amount: 10.8, timestamp: Date.now() - 90000 },
-  ])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+  const [leaderboard, setLeaderboard] = useState<{ address: string; totalBid: bigint }[]>([])
+  const [bidHistory, setBidHistory] = useState<BidEvent[]>([])
+  const [pendingWithdrawal, setPendingWithdrawal] = useState<bigint>(BigInt(0))
 
-  const [isFlameFlickering, setIsFlameFlickering] = useState(false)
-  const [showBidSuccess, setShowBidSuccess] = useState(false)
-  const [userBalance] = useState(45.67)
+  // Connect wallet
+  const connectWallet = async () => {
+    try {
+      setError("")
+      if (typeof window.ethereum === "undefined") {
+        setError("MetaMask is not installed. Please install MetaMask to use this dApp.")
+        return
+      }
 
-  // Simulate candle burning down
-  useEffect(() => {
-    if (currentAuction.status !== "active") return
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
+      const userAddr = accounts[0]
+      setUserAddress(userAddr)
 
-    const interval = setInterval(() => {
-      setCurrentAuction((prev) => {
-        const newTimeRemaining = Math.max(0, prev.timeRemaining - 1000)
-        const newWickHeight = Math.max(0, (newTimeRemaining / prev.totalTime) * 100)
+      const prov = new ethers.BrowserProvider(window.ethereum)
+      const sign = await prov.getSigner()
+      setProvider(prov)
+      setSigner(sign)
 
-        // Random chance for candle to end early (candle auction mechanic)
-        const shouldEndEarly = Math.random() < 0.02 && newTimeRemaining < prev.totalTime * 0.8
+      // Switch to correct network
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: NETWORK_CONFIG.chainId }],
+        })
+      } catch (switchError: any) {
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [NETWORK_CONFIG],
+          })
+        }
+      }
 
-        if (newTimeRemaining <= 0 || shouldEndEarly) {
-          playSound("success")
-          return {
-            ...prev,
-            timeRemaining: 0,
-            wickHeight: 0,
-            status: "ended",
-          }
+      const contr = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, sign)
+      setContract(contr)
+      setConnected(true)
+
+      // Check if owner
+      const owner = await contr.owner()
+      setIsOwner(owner.toLowerCase() === userAddr.toLowerCase())
+
+      setSuccess("Wallet connected successfully!")
+      setTimeout(() => setSuccess(""), 3000)
+    } catch (err: any) {
+      setError(`Failed to connect wallet: ${err.message}`)
+    }
+  }
+
+  // Refresh game data
+  const refreshGameData = async () => {
+    if (!contract) return
+
+    try {
+      let gameId
+      try {
+        gameId = await contract.currentGameId()
+      } catch (err) {
+        console.log("No active game yet")
+        setCurrentGameId(0)
+        setGamePhase("Not Started")
+        return
+      }
+      
+      setCurrentGameId(Number(gameId))
+
+      if (gameId > 0) {
+        const game = await contract.games(gameId)
+        const gameState = await contract.getGameState(gameId)
+        const players = await contract.getGamePlayerCount(gameId)
+        
+        setGameData({
+          gameId: Number(game.gameId),
+          startTime: Number(game.startTime),
+          endingPeriodStart: Number(game.endingPeriodStart),
+          endTime: Number(game.endTime),
+          totalPot: game.totalPot,
+          treasuryFund: game.treasuryFund,
+          winner: game.winner,
+          state: Number(gameState),
+          candleEnd: Number(game.candleEnd),
+          finalized: game.finalized
+        })
+        
+        setPlayerCount(Number(players))
+        setGamePhase(GameStates[Number(gameState)])
+
+        // Get player data
+        if (userAddress) {
+          const pData = await contract.gamePlayers(gameId, userAddress)
+          setPlayerData({
+            totalBid: pData.totalBid,
+            bidCount: Number(pData.bidCount),
+            lastBidTime: Number(pData.lastBidTime),
+            exists: pData.exists
+          })
+
+          // Check pending withdrawals
+          const pending = await contract.pendingWithdrawals(userAddress)
+          setPendingWithdrawal(pending)
         }
 
-        // Flicker effect when time is low
-        if (newTimeRemaining < 15000) {
-          setIsFlameFlickering(true)
+        // Get leaderboard
+        try {
+          const [addresses, bids] = await contract.getTopPlayers(gameId, 10)
+          const lb = addresses.map((addr: string, i: number) => ({
+            address: addr,
+            totalBid: bids[i]
+          }))
+          setLeaderboard(lb)
+        } catch (e) {
+          console.error("Error fetching leaderboard:", e)
         }
+      }
+    } catch (err: any) {
+      console.error("Error refreshing game data:", err)
+    }
+  }
 
-        return {
-          ...prev,
-          timeRemaining: newTimeRemaining,
-          wickHeight: newWickHeight,
-        }
+  // Place bid
+  const placeBid = async () => {
+    if (!contract || !currentGameId || !bidAmount) return
+
+    setLoading(true)
+    setError("")
+    
+    try {
+      const tx = await contract.placeBid(currentGameId, {
+        value: ethers.parseEther(bidAmount)
       })
-    }, 1000)
+      
+      setSuccess("Bid placed! Waiting for confirmation...")
+      await tx.wait()
+      
+      setSuccess("Bid confirmed! 🎉")
+      setBidAmount("")
+      await refreshGameData()
+      
+      setTimeout(() => setSuccess(""), 3000)
+    } catch (err: any) {
+      setError(`Failed to place bid: ${err.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
 
+  // Start new game (owner only)
+  const startNewGame = async () => {
+    if (!contract || !isOwner) return
+
+    setLoading(true)
+    setError("")
+    
+    try {
+      const tx = await contract.startNewGame()
+      setSuccess("Starting new game...")
+      await tx.wait()
+      
+      setSuccess("New game started! 🚀")
+      await refreshGameData()
+      
+      setTimeout(() => setSuccess(""), 3000)
+    } catch (err: any) {
+      setError(`Failed to start game: ${err.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // End game
+  const endGame = async () => {
+    if (!contract || !currentGameId) return
+
+    setLoading(true)
+    setError("")
+    
+    try {
+      const tx = await contract.endGame(currentGameId)
+      setSuccess("Ending game...")
+      await tx.wait()
+      
+      setSuccess("Game ended! Winner determined 🏆")
+      await refreshGameData()
+      
+      setTimeout(() => setSuccess(""), 3000)
+    } catch (err: any) {
+      setError(`Failed to end game: ${err.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Withdraw winnings
+  const withdraw = async () => {
+    if (!contract) return
+
+    setLoading(true)
+    setError("")
+    
+    try {
+      const tx = await contract.withdraw()
+      setSuccess("Withdrawing funds...")
+      await tx.wait()
+      
+      setSuccess("Withdrawal successful! 💰")
+      await refreshGameData()
+      
+      setTimeout(() => setSuccess(""), 3000)
+    } catch (err: any) {
+      setError(`Failed to withdraw: ${err.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Update time remaining
+  useEffect(() => {
+    if (!gameData) return
+
+    const updateTimer = () => {
+      const now = Math.floor(Date.now() / 1000)
+      let targetTime = 0
+      let label = ""
+
+      if (gameData.state === 1) { // Starting Period
+        targetTime = gameData.endingPeriodStart
+        label = "Ending period starts in: "
+      } else if (gameData.state === 2) { // Ending Period
+        targetTime = gameData.endTime
+        label = "Game ends in: "
+      }
+
+      if (targetTime > now) {
+        const diff = targetTime - now
+        const days = Math.floor(diff / 86400)
+        const hours = Math.floor((diff % 86400) / 3600)
+        const minutes = Math.floor((diff % 3600) / 60)
+        const seconds = diff % 60
+
+        setTimeRemaining(
+          label + 
+          (days > 0 ? `${days}d ` : "") +
+          `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+        )
+      } else {
+        setTimeRemaining(gameData.state === 3 ? "Game Ended" : "Waiting...")
+      }
+    }
+
+    updateTimer()
+    const interval = setInterval(updateTimer, 1000)
     return () => clearInterval(interval)
-  }, [currentAuction.status, playSound])
+  }, [gameData])
 
-  const placeBid = () => {
-    const bid = Number.parseFloat(bidAmount)
-    if (!bid || bid <= currentAuction.currentBid || bid > userBalance) {
-      playSound("error")
-      return
+  // Auto-refresh
+  useEffect(() => {
+    if (connected) {
+      refreshGameData()
+      const interval = setInterval(refreshGameData, 10000)
+      return () => clearInterval(interval)
+    }
+  }, [connected, contract])
+
+  // Listen for events
+  useEffect(() => {
+    if (!contract || !currentGameId) return
+
+    const handleBidPlaced = (gameId: bigint, player: string, amount: bigint, totalBid: bigint, event: any) => {
+      if (Number(gameId) === currentGameId) {
+        setBidHistory(prev => [{
+          player,
+          amount,
+          totalBid,
+          timestamp: Date.now(),
+          txHash: event.log.transactionHash
+        }, ...prev].slice(0, 20))
+        refreshGameData()
+      }
     }
 
-    playSound("click")
-
-    // Add bid to recent bids
-    const newBid: Bid = {
-      id: Date.now().toString(),
-      bidder: "You",
-      amount: bid,
-      timestamp: Date.now(),
+    contract.on("BidPlaced", handleBidPlaced)
+    return () => {
+      contract.off("BidPlaced", handleBidPlaced)
     }
-
-    setRecentBids((prev) => [newBid, ...prev.slice(0, 4)])
-
-    // Update auction
-    setCurrentAuction((prev) => ({
-      ...prev,
-      currentBid: bid,
-      bidder: "You",
-      participants: prev.participants + 1,
-      // Extend time slightly (candle auction mechanic)
-      timeRemaining: Math.min(prev.timeRemaining + 5000, prev.totalTime),
-    }))
-
-    setBidAmount("")
-    setShowBidSuccess(true)
-    setTimeout(() => setShowBidSuccess(false), 2000)
-  }
-
-  const formatTime = (ms: number) => {
-    const seconds = Math.floor(ms / 1000)
-    const minutes = Math.floor(seconds / 60)
-    return `${minutes}:${(seconds % 60).toString().padStart(2, "0")}`
-  }
-
-  const formatAddress = (address: string) => {
-    if (address === "You") return address
-    return `${address.slice(0, 6)}...${address.slice(-4)}`
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "border-toxic-slime text-toxic-slime"
-      case "ending":
-        return "border-amber-crt text-amber-crt"
-      case "ended":
-        return "border-laser-berry text-laser-berry"
-      default:
-        return "border-soda-chrome text-soda-chrome"
-    }
-  }
+  }, [contract, currentGameId])
 
   return (
     <div className="min-h-screen bg-midnight-void text-ghost-grey pt-20 px-4">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
           className="text-center mb-8"
@@ -164,302 +371,355 @@ export default function BigWicks() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <h1 className="text-4xl md:text-6xl font-orbitron font-black text-toxic-slime mb-4">big wicks</h1>
-          <p className="text-soda-chrome font-vt323 text-lg">candle auction jackpots // flame dies, winner cries</p>
+          <h1 className="text-4xl md:text-6xl font-orbitron font-black text-toxic-slime mb-4">
+            big wicks 🕯️
+          </h1>
+          <p className="text-soda-chrome font-vt323 text-lg mb-2">
+            candle auction game • winner takes 90% • treasury gets 10%
+          </p>
+          <p className="text-ghost-grey font-vt323 text-sm">
+            bid high • bid often • but timing is everything
+          </p>
         </motion.div>
 
-        {/* Winner Announcement */}
-        <AnimatePresence>
-          {currentAuction.status === "ended" && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="mb-8"
-            >
-              <Card className="bg-toxic-slime/10 border-2 border-toxic-slime/50">
-                <CardContent className="p-8 text-center">
-                  <motion.div
-                    animate={{ rotate: [0, 5, -5, 0] }}
-                    transition={{ duration: 0.5, repeat: 3 }}
-                    className="text-6xl mb-4"
-                  >
-                    🏆
-                  </motion.div>
-                  <h2 className="text-3xl font-orbitron font-bold text-toxic-slime mb-2">Candle Extinguished!</h2>
-                  <p className="text-xl font-vt323 text-ghost-grey mb-4">
-                    Winner: {formatAddress(currentAuction.bidder)}
-                  </p>
-                  <p className="text-lg font-vt323 text-laser-berry">Prize: {currentAuction.jackpot.toFixed(2)} KSM</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Alerts */}
+        {error && (
+          <Alert className="mb-4 border-laser-berry bg-laser-berry/10">
+            <AlertCircle className="h-4 w-4 text-laser-berry" />
+            <AlertTitle className="text-laser-berry">Error</AlertTitle>
+            <AlertDescription className="text-ghost-grey">{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {success && (
+          <Alert className="mb-4 border-toxic-slime bg-toxic-slime/10">
+            <Sparkles className="h-4 w-4 text-toxic-slime" />
+            <AlertTitle className="text-toxic-slime">Success</AlertTitle>
+            <AlertDescription className="text-ghost-grey">{success}</AlertDescription>
+          </Alert>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Auction */}
-          <div className="lg:col-span-2">
-            <Card className="bg-midnight-void/80 border-2 border-toxic-slime/50 mb-6">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="text-toxic-slime font-orbitron">{currentAuction.title}</span>
-                  <Badge variant="outline" className={`font-vt323 ${getStatusColor(currentAuction.status)}`}>
-                    {currentAuction.status}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-soda-chrome font-vt323 mb-6">{currentAuction.description}</p>
+        {/* Connect Wallet */}
+        {!connected && (
+          <Card className="mb-8 bg-midnight-void/80 border-soda-chrome/30">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Wallet className="w-16 h-16 text-toxic-slime mb-4" />
+              <h3 className="text-xl font-orbitron text-toxic-slime mb-2">Connect Your Wallet</h3>
+              <p className="text-soda-chrome mb-4">Connect to Polkadot Hub TestNet to play</p>
+              <Button
+                onClick={connectWallet}
+                size="lg"
+                className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/80"
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Connect MetaMask
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
-                {/* Candle Visualization */}
-                <div className="flex justify-center mb-8">
-                  <div className="relative">
-                    {/* Candle Body */}
-                    <div className="w-16 bg-amber-crt/30 border-2 border-amber-crt/50 rounded-b-lg relative overflow-hidden">
-                      <div
-                        className="bg-amber-crt/60 transition-all duration-1000 ease-out"
-                        style={{ height: `${Math.max(currentAuction.wickHeight, 10)}px` }}
-                      />
-                      {/* Wax drips */}
-                      <div className="absolute top-0 left-1 w-1 h-4 bg-amber-crt/40 rounded-full" />
-                      <div className="absolute top-2 right-1 w-1 h-6 bg-amber-crt/40 rounded-full" />
-                    </div>
-
-                    {/* Flame */}
-                    <motion.div
-                      className="absolute -top-8 left-1/2 -translate-x-1/2"
-                      animate={
-                        isFlameFlickering
-                          ? {
-                              scale: [1, 1.2, 0.8, 1.1, 0.9, 1],
-                              rotate: [-2, 2, -1, 1, 0],
-                            }
-                          : { scale: [1, 1.1, 1], rotate: [-1, 1, -1] }
-                      }
-                      transition={{
-                        duration: isFlameFlickering ? 0.3 : 2,
-                        repeat: Number.POSITIVE_INFINITY,
-                      }}
-                    >
-                      <Flame
-                        className={`w-8 h-8 ${
-                          currentAuction.status === "ended"
-                            ? "text-soda-chrome/30"
-                            : isFlameFlickering
-                              ? "text-laser-berry"
-                              : "text-amber-crt"
-                        }`}
-                        fill="currentColor"
-                      />
-                    </motion.div>
-
-                    {/* Smoke effect when ended */}
-                    {currentAuction.status === "ended" && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 0 }}
-                        animate={{ opacity: [0, 0.6, 0], y: -20 }}
-                        transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY }}
-                        className="absolute -top-12 left-1/2 -translate-x-1/2 text-soda-chrome/50"
-                      >
-                        💨
-                      </motion.div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Auction Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="text-center">
-                    <div className="text-2xl font-orbitron font-bold text-toxic-slime">
-                      {currentAuction.jackpot.toFixed(2)}
-                    </div>
-                    <div className="text-sm font-vt323 text-soda-chrome">jackpot (KSM)</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-orbitron font-bold text-laser-berry">
-                      {currentAuction.currentBid.toFixed(1)}
-                    </div>
-                    <div className="text-sm font-vt323 text-soda-chrome">current bid</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-orbitron font-bold text-aqua-glitch">
-                      {formatTime(currentAuction.timeRemaining)}
-                    </div>
-                    <div className="text-sm font-vt323 text-soda-chrome">time left</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-orbitron font-bold text-amber-crt">{currentAuction.participants}</div>
-                    <div className="text-sm font-vt323 text-soda-chrome">bidders</div>
-                  </div>
-                </div>
-
-                {/* Time Progress */}
-                <div className="mb-6">
-                  <div className="flex justify-between text-sm font-vt323 text-soda-chrome mb-2">
-                    <span>candle burn progress</span>
-                    <span>{((1 - currentAuction.timeRemaining / currentAuction.totalTime) * 100).toFixed(0)}%</span>
-                  </div>
-                  <Progress
-                    value={(1 - currentAuction.timeRemaining / currentAuction.totalTime) * 100}
-                    className="h-3"
-                  />
-                </div>
-
-                {/* Current Leader */}
-                <div className="bg-midnight-void/50 border border-soda-chrome/30 rounded p-4 mb-6">
-                  <div className="flex items-center justify-between">
+        {connected && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Game Panel */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Game Status */}
+              <Card className="bg-midnight-void/80 border-soda-chrome/30">
+                <CardHeader>
+                  <CardTitle className="text-toxic-slime font-orbitron flex items-center">
+                    <Flame className="w-5 h-5 mr-2" />
+                    {currentGameId > 0 ? `Game #${currentGameId} Status` : "No Active Game"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
-                      <div className="text-sm font-vt323 text-soda-chrome">current leader</div>
-                      <div className="text-lg font-orbitron text-toxic-slime">
-                        {formatAddress(currentAuction.bidder)}
-                      </div>
+                      <p className="text-soda-chrome text-sm font-vt323">Phase</p>
+                      <p className="text-toxic-slime font-orbitron text-lg">{gamePhase}</p>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm font-vt323 text-soda-chrome">winning bid</div>
-                      <div className="text-lg font-orbitron text-laser-berry">
-                        {currentAuction.currentBid.toFixed(2)} KSM
-                      </div>
+                    <div>
+                      <p className="text-soda-chrome text-sm font-vt323">Players</p>
+                      <p className="text-aqua-glitch font-orbitron text-lg">{playerCount}</p>
                     </div>
-                  </div>
-                </div>
-
-                {/* Bid Input */}
-                {currentAuction.status === "active" && (
-                  <div className="space-y-4">
-                    <div className="flex space-x-3">
-                      <div className="flex-1">
-                        <Input
-                          type="number"
-                          value={bidAmount}
-                          onChange={(e) => setBidAmount(e.target.value)}
-                          placeholder={`Min: ${(currentAuction.currentBid + 0.1).toFixed(1)} KSM`}
-                          className="bg-midnight-void border-soda-chrome/50 text-ghost-grey font-vt323"
-                        />
-                      </div>
-                      <Button
-                        onClick={placeBid}
-                        disabled={!bidAmount || Number.parseFloat(bidAmount) <= currentAuction.currentBid}
-                        className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/90 font-vt323 font-bold"
-                      >
-                        <Zap className="w-4 h-4 mr-2" />
-                        bid
-                      </Button>
+                    <div>
+                      <p className="text-soda-chrome text-sm font-vt323">Total Pot</p>
+                      <p className="text-laser-berry font-orbitron text-lg">
+                        {gameData ? ethers.formatEther(gameData.totalPot) : "0"} PAS
+                      </p>
                     </div>
-                    <div className="flex justify-between text-xs font-vt323 text-soda-chrome">
-                      <span>balance: {userBalance.toFixed(2)} KSM</span>
-                      <span>min bid: {(currentAuction.currentBid + 0.1).toFixed(1)} KSM</span>
+                    <div>
+                      <p className="text-soda-chrome text-sm font-vt323">Treasury</p>
+                      <p className="text-amber-crt font-orbitron text-lg">
+                        {gameData ? ethers.formatEther(gameData.treasuryFund) : "0"} PAS
+                      </p>
                     </div>
                   </div>
-                )}
 
-                {/* Success Message */}
-                <AnimatePresence>
-                  {showBidSuccess && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="mt-4 p-3 bg-toxic-slime/10 border border-toxic-slime/30 rounded"
-                    >
-                      <p className="text-toxic-slime font-vt323 text-sm">bid placed! candle wick extended slightly.</p>
-                    </motion.div>
+                  {gameData && gameData.state !== 3 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-soda-chrome font-vt323 flex items-center">
+                          <Clock className="w-4 h-4 mr-1" />
+                          {timeRemaining}
+                        </span>
+                        <Badge variant="outline" className="text-toxic-slime border-toxic-slime">
+                          {gameData.state === 1 ? "Starting Period" : "Ending Period (Candle Active)"}
+                        </Badge>
+                      </div>
+                      <Progress 
+                        value={
+                          gameData.state === 1
+                            ? ((Date.now() / 1000 - gameData.startTime) / (gameData.endingPeriodStart - gameData.startTime)) * 100
+                            : ((Date.now() / 1000 - gameData.endingPeriodStart) / (gameData.endTime - gameData.endingPeriodStart)) * 100
+                        }
+                        className="h-2"
+                      />
+                    </div>
                   )}
-                </AnimatePresence>
-              </CardContent>
-            </Card>
-          </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Recent Bids */}
-            <Card className="bg-midnight-void/80 border-2 border-aqua-glitch/50">
-              <CardHeader>
-                <CardTitle className="text-aqua-glitch font-orbitron flex items-center">
-                  <TrendingUp className="w-5 h-5 mr-2" />
-                  recent bids
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {recentBids.map((bid, index) => (
-                    <motion.div
-                      key={bid.id}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="flex items-center justify-between p-3 border border-aqua-glitch/20 rounded"
-                    >
-                      <div>
-                        <div className="font-vt323 text-aqua-glitch text-sm">{formatAddress(bid.bidder)}</div>
-                        <div className="font-vt323 text-soda-chrome text-xs">
-                          {new Date(bid.timestamp).toLocaleTimeString()}
+                  {gameData && gameData.state === 3 && gameData.winner !== "0x0000000000000000000000000000000000000000" && (
+                    <div className="bg-toxic-slime/10 rounded-lg p-4 border border-toxic-slime/30">
+                      <div className="flex items-center">
+                        <Trophy className="w-8 h-8 text-toxic-slime mr-3" />
+                        <div>
+                          <p className="text-toxic-slime font-orbitron text-lg">Winner!</p>
+                          <p className="text-soda-chrome font-mono text-sm">{gameData.winner}</p>
+                          <p className="text-ghost-grey font-vt323">
+                            Won {ethers.formatEther(gameData.totalPot * BigInt(90) / BigInt(100))} PAS
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-vt323 text-toxic-slime text-sm">{bid.amount.toFixed(2)} KSM</div>
+                    </div>
+                  )}
+
+                  {currentGameId === 0 && (
+                    <div className="bg-soda-chrome/10 rounded-lg p-4 border border-soda-chrome/30 text-center">
+                      <p className="text-soda-chrome font-vt323 text-lg">No game is currently active</p>
+                      {isOwner && (
+                        <p className="text-ghost-grey font-vt323 text-sm mt-2">
+                          As the contract owner, you can start the first game using the admin controls below
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Place Bid */}
+              {gameData && (gameData.state === 1 || gameData.state === 2) && (
+                <Card className="bg-midnight-void/80 border-soda-chrome/30">
+                  <CardHeader>
+                    <CardTitle className="text-aqua-glitch font-orbitron flex items-center">
+                      <Zap className="w-5 h-5 mr-2" />
+                      Place Your Bid
+                    </CardTitle>
+                    <CardDescription className="text-soda-chrome">
+                      Bid to increase your chances of winning the pot
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="bid-amount" className="text-soda-chrome">Bid Amount (PAS)</Label>
+                      <div className="flex gap-2 mt-1">
+                        <Input
+                          id="bid-amount"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={bidAmount}
+                          onChange={(e) => setBidAmount(e.target.value)}
+                          placeholder="0.0"
+                          className="bg-midnight-void border-soda-chrome/50 text-ghost-grey"
+                        />
+                        <Button
+                          onClick={placeBid}
+                          disabled={loading || !bidAmount || parseFloat(bidAmount) <= 0}
+                          className="bg-aqua-glitch text-midnight-void hover:bg-aqua-glitch/80"
+                        >
+                          {loading ? "Bidding..." : "Place Bid"}
+                        </Button>
                       </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    </div>
 
-            {/* How It Works */}
-            <Card className="bg-midnight-void/80 border-2 border-amber-crt/50">
-              <CardHeader>
-                <CardTitle className="text-amber-crt font-orbitron">candle auction rules</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm font-vt323 text-soda-chrome">
-                  <div className="flex items-start space-x-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-crt mt-0.5 flex-shrink-0" />
-                    <span>candle burns down randomly - no one knows when it ends</span>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <Flame className="w-4 h-4 text-laser-berry mt-0.5 flex-shrink-0" />
-                    <span>each bid extends the wick slightly but unpredictably</span>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <Coins className="w-4 h-4 text-toxic-slime mt-0.5 flex-shrink-0" />
-                    <span>last bidder when flame dies wins entire jackpot</span>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <Users className="w-4 h-4 text-aqua-glitch mt-0.5 flex-shrink-0" />
-                    <span>losing bids contribute to next auction's prize pool</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                    {playerData && playerData.exists && (
+                      <div className="bg-midnight-void/50 rounded-lg p-3 border border-soda-chrome/20">
+                        <p className="text-soda-chrome font-vt323 text-sm">Your Stats</p>
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          <div>
+                            <p className="text-ghost-grey text-xs">Total Bid</p>
+                            <p className="text-toxic-slime font-mono text-sm">
+                              {ethers.formatEther(playerData.totalBid)} PAS
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-ghost-grey text-xs">Bid Count</p>
+                            <p className="text-aqua-glitch font-mono text-sm">{playerData.bidCount}</p>
+                          </div>
+                          <div>
+                            <p className="text-ghost-grey text-xs">Last Bid</p>
+                            <p className="text-laser-berry font-mono text-sm">
+                              {new Date(playerData.lastBidTime * 1000).toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
-            {/* Stats */}
-            <Card className="bg-midnight-void/80 border-2 border-laser-berry/50">
-              <CardHeader>
-                <CardTitle className="text-laser-berry font-orbitron">auction stats</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-soda-chrome font-vt323 text-sm">total volume today</span>
-                    <span className="text-ghost-grey font-vt323 text-sm">1,247.89 KSM</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-soda-chrome font-vt323 text-sm">auctions completed</span>
-                    <span className="text-ghost-grey font-vt323 text-sm">23</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-soda-chrome font-vt323 text-sm">avg auction time</span>
-                    <span className="text-ghost-grey font-vt323 text-sm">1m 34s</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-soda-chrome font-vt323 text-sm">biggest jackpot</span>
-                    <span className="text-ghost-grey font-vt323 text-sm">892.15 KSM</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Admin Controls */}
+              {isOwner && (
+                <Card className="bg-midnight-void/80 border-amber-crt/30">
+                  <CardHeader>
+                    <CardTitle className="text-amber-crt font-orbitron">Admin Controls</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {(!gameData || gameData.state === 3) && (
+                      <Button
+                        onClick={startNewGame}
+                        disabled={loading}
+                        className="w-full bg-toxic-slime text-midnight-void hover:bg-toxic-slime/80"
+                      >
+                        Start New Game
+                      </Button>
+                    )}
+                    {gameData && gameData.state !== 3 && Date.now() / 1000 > gameData.endTime && (
+                      <Button
+                        onClick={endGame}
+                        disabled={loading}
+                        className="w-full bg-laser-berry text-white hover:bg-laser-berry/80"
+                      >
+                        End Game & Determine Winner
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Pending Withdrawal */}
+              {pendingWithdrawal > BigInt(0) && (
+                <Card className="bg-toxic-slime/10 border-toxic-slime">
+                  <CardContent className="flex items-center justify-between py-4">
+                    <div>
+                      <p className="text-toxic-slime font-orbitron">You have winnings to claim!</p>
+                      <p className="text-ghost-grey font-vt323">
+                        {ethers.formatEther(pendingWithdrawal)} PAS available
+                      </p>
+                    </div>
+                    <Button
+                      onClick={withdraw}
+                      disabled={loading}
+                      className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/80"
+                    >
+                      Withdraw
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Side Panel */}
+            <div className="space-y-6">
+              {/* Leaderboard */}
+              <Card className="bg-midnight-void/80 border-soda-chrome/30">
+                <CardHeader>
+                  <CardTitle className="text-laser-berry font-orbitron flex items-center">
+                    <TrendingUp className="w-5 h-5 mr-2" />
+                    Leaderboard
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-64">
+                    {leaderboard.length > 0 ? (
+                      <div className="space-y-2">
+                        {leaderboard.map((player, index) => (
+                          <div
+                            key={player.address}
+                            className="flex items-center justify-between p-2 rounded bg-midnight-void/50 border border-soda-chrome/20"
+                          >
+                            <div className="flex items-center">
+                              <span className={`font-orbitron mr-2 ${
+                                index === 0 ? "text-toxic-slime" :
+                                index === 1 ? "text-aqua-glitch" :
+                                index === 2 ? "text-laser-berry" :
+                                "text-soda-chrome"
+                              }`}>
+                                #{index + 1}
+                              </span>
+                              <span className="text-ghost-grey font-mono text-xs">
+                                {player.address.slice(0, 6)}...{player.address.slice(-4)}
+                              </span>
+                            </div>
+                            <span className="text-toxic-slime font-mono text-sm">
+                              {ethers.formatEther(player.totalBid)} PAS
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-soda-chrome py-8">No bids yet</p>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Recent Bids */}
+              <Card className="bg-midnight-void/80 border-soda-chrome/30">
+                <CardHeader>
+                  <CardTitle className="text-aqua-glitch font-orbitron flex items-center">
+                    <Users className="w-5 h-5 mr-2" />
+                    Recent Bids
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-64">
+                    {bidHistory.length > 0 ? (
+                      <div className="space-y-2">
+                        {bidHistory.map((bid, index) => (
+                          <div
+                            key={`${bid.txHash}-${index}`}
+                            className="p-2 rounded bg-midnight-void/50 border border-soda-chrome/20"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-ghost-grey font-mono text-xs">
+                                {bid.player.slice(0, 6)}...{bid.player.slice(-4)}
+                              </span>
+                              <span className="text-toxic-slime font-mono text-sm">
+                                +{ethers.formatEther(bid.amount)} PAS
+                              </span>
+                            </div>
+                            <p className="text-soda-chrome text-xs font-vt323 mt-1">
+                              Total: {ethers.formatEther(bid.totalBid)} PAS
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center text-soda-chrome py-8">No recent bids</p>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Game Rules */}
+              <Card className="bg-midnight-void/80 border-soda-chrome/30">
+                <CardHeader>
+                  <CardTitle className="text-amber-crt font-orbitron">Game Rules</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-ghost-grey">
+                  <p>• <span className="text-toxic-slime">Starting Period:</span> 2 days</p>
+                  <p>• <span className="text-aqua-glitch">Ending Period:</span> 5 days (candle active)</p>
+                  <p>• <span className="text-laser-berry">Winner Prize:</span> 90% of total pot</p>
+                  <p>• <span className="text-amber-crt">Treasury:</span> 10% of total pot</p>
+                  <Separator className="my-2" />
+                  <p className="text-soda-chrome font-vt323">
+                    The winner is determined retroactively based on who had the highest bid at a random point during the ending period!
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
