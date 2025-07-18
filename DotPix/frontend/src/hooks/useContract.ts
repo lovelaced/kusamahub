@@ -55,6 +55,15 @@ export const useContract = ({ provider, contractAddress }: UseContractProps) => 
       const colorInts = colors.map(color => parseInt(color.replace('#', ''), 16));
       const fee = await contract.calculatePixelFee(pixelIds.length);
       
+      // Try to simulate the transaction first to catch errors early
+      try {
+        await contract.placePixelsBatch.staticCall(pixelIds, colorInts, { value: fee });
+      } catch (simError: any) {
+        console.log('Simulation failed:', simError);
+        throw new Error(`Transaction would fail: ${simError.reason || simError.message || 'Unknown simulation error'}`);
+      }
+      
+      // Execute the transaction (V3 contract supports larger batches efficiently)
       const tx = await contract.placePixelsBatch(pixelIds, colorInts, { value: fee });
       return await tx.wait();
     } finally {

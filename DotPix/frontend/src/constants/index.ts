@@ -2,7 +2,7 @@ export const CANVAS_CONFIG = {
   WIDTH: 2000,
   HEIGHT: 2000,
   TOTAL_PIXELS: 2000 * 2000,
-  MAX_BATCH_SIZE: 100,
+  MAX_BATCH_SIZE: 100, // Contract supports up to 100 pixels per batch
   PIXEL_SIZE: 1, // pixels in the display
   CHUNK_SIZE: 100 // for loading data in chunks
 };

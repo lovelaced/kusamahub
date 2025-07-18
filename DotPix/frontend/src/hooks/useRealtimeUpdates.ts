@@ -51,32 +51,16 @@ export const useRealtimeUpdates = ({
     totalFee: bigint,
     timestamp: bigint
   ) => {
-    const pixelMap = new Map<number, Pixel>();
+    // V3 emits individual PixelPlaced events for each pixel in a batch
+    // This batch event is just a summary, so we only show notification
     
-    for (let i = 0; i < pixelIds.length; i++) {
-      const id = Number(pixelIds[i]);
-      const x = id % CANVAS_CONFIG.WIDTH;
-      const y = Math.floor(id / CANVAS_CONFIG.WIDTH);
-      
-      const pixel: Pixel = {
-        id,
-        x,
-        y,
-        color: `#${colors[i].toString(16).padStart(6, '0')}`,
-        owner,
-        lastModified: Number(timestamp)
-      };
-      
-      pixelMap.set(id, pixel);
-    }
-
-    onPixelUpdate(pixelMap);
-
-    // Show notification for other users' batch
-    if (owner.toLowerCase() !== userAddress?.toLowerCase()) {
+    // Only show notification for non-empty batches from other users
+    if (pixelIds.length > 0 && owner.toLowerCase() !== userAddress?.toLowerCase()) {
       console.log(`${pixelIds.length} pixels were placed by ${owner.slice(0, 6)}...${owner.slice(-4)}`);
     }
-  }, [onPixelUpdate, userAddress]);
+    
+    // Individual pixels are handled by PixelPlaced events
+  }, [userAddress]);
 
   useEffect(() => {
     if (!contract) return;
