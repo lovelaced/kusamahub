@@ -27,5 +27,3 @@ kusamahub.com is an open-source and community-operated site that aims to be a ce
 - Assessing all potential risks
 
 No warranties are provided. Use at your own risk. Never interact with contracts you do not fully understand.
- 
-Please see [LINK_TO_ABOUT_KUSAMAHUB.COM] for additional important notices.
