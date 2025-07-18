@@ -21,13 +21,13 @@ const chains: { id: ChainId; icon: string }[] = [
   { id: "ksmAh", icon: "💎" },
 ]
 
-export default function WarpDrive() {
+export default function Bridge() {
   const { playSound } = useSoundContext()
   const { extensions, selectedExtension, setSelectedExtension, accounts, isConnecting } = useExtension()
   const [selectedAccount, setSelectedAccount] = useState<InjectedPolkadotAccount | null>(null)
   const [step, setStep] = useState(1)
-  const [sourceChain, setSourceChain] = useState<ChainId | "">("")
-  const [destChain, setDestChain] = useState<ChainId | "">("")
+  const [sourceChain, setSourceChain] = useState<ChainId | "">("ksm")
+  const [destChain, setDestChain] = useState<ChainId | "">("ksmAh")
   const [selectedAsset] = useState<AssetId>("KSM") // Only KSM for now
   const [amount, setAmount] = useState<string>("")
   const [recipientAddress, setRecipientAddress] = useState<string>("")
@@ -117,6 +117,13 @@ export default function WarpDrive() {
     }
   }, [accounts, selectedAccount])
 
+  // Auto-fill recipient address with selected account address
+  useEffect(() => {
+    if (selectedAccount && !recipientAddress) {
+      setRecipientAddress(selectedAccount.address)
+    }
+  }, [selectedAccount, recipientAddress])
+
   // Handle transfer state changes
   useEffect(() => {
     if (transferState.status === "finalized") {
@@ -139,9 +146,9 @@ export default function WarpDrive() {
           transition={{ duration: 0.6 }}
         >
           <h1 className="text-4xl md:text-6xl font-orbitron font-black text-toxic-slime mb-4">
-            initiate cross‑chain warp
+            kusama bridge
           </h1>
-          <p className="text-soda-chrome font-vt323 text-lg">real ksm teleportation via xcm // no backsies</p>
+          <p className="text-soda-chrome font-vt323 text-lg">transfer ksm from relay chain to asset hub</p>
         </motion.div>
 
         {/* Wallet Connection */}
@@ -156,7 +163,7 @@ export default function WarpDrive() {
               <div className="text-center space-y-4">
                 <Wallet className="w-12 h-12 text-toxic-slime mx-auto" />
                 <h3 className="font-orbitron font-bold text-xl text-ghost-grey">connect wallet</h3>
-                <p className="text-soda-chrome font-vt323 text-sm">need your keys to unlock the warp drive</p>
+                <p className="text-soda-chrome font-vt323 text-sm">connect your wallet to bridge funds</p>
                 
                 {extensions.length === 0 ? (
                   <div className="text-amber-crt font-vt323 text-sm">
@@ -234,7 +241,7 @@ export default function WarpDrive() {
                   <div className="w-3 h-3 bg-amber-crt rounded-full" />
                   <div className="w-3 h-3 bg-toxic-slime rounded-full" />
                 </div>
-                <span className="font-vt323 text-sm text-soda-chrome">WARP_DRIVE.EXE</span>
+                <span className="font-vt323 text-sm text-soda-chrome">BRIDGE.EXE</span>
                 <div className="flex items-center space-x-1">
                   <div className="w-4 h-1 bg-soda-chrome/50" />
                   <div className="w-4 h-1 bg-soda-chrome/50" />
@@ -414,7 +421,7 @@ export default function WarpDrive() {
                           className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/90 font-vt323 flex-1"
                           onMouseEnter={() => playSound("hover")}
                         >
-                          review jump
+                          review transfer
                           <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
                       )}
@@ -431,7 +438,7 @@ export default function WarpDrive() {
                     className="space-y-6"
                   >
                     <div className="text-center mb-6">
-                      <h3 className="font-orbitron font-bold text-xl text-ghost-grey mb-2">confirm warp</h3>
+                      <h3 className="font-orbitron font-bold text-xl text-ghost-grey mb-2">confirm transfer</h3>
                       <p className="text-soda-chrome font-vt323 text-sm">review details before initiating</p>
                     </div>
 
@@ -477,7 +484,7 @@ export default function WarpDrive() {
                         onMouseEnter={() => playSound("hover")}
                       >
                         <Zap className="w-4 h-4 mr-2" />
-                        INITIATE JUMP
+                        BRIDGE FUNDS
                       </Button>
                     </div>
                   </motion.div>
@@ -503,7 +510,7 @@ export default function WarpDrive() {
                 className="bg-midnight-void border-2 border-toxic-slime/50 rounded-lg p-8 max-w-md w-full mx-4"
               >
                 <div className="text-center space-y-6">
-                  <div className="text-toxic-slime font-orbitron font-bold text-xl">warping reality...</div>
+                  <div className="text-toxic-slime font-orbitron font-bold text-xl">bridging funds...</div>
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between font-vt323 text-sm">
@@ -544,7 +551,7 @@ export default function WarpDrive() {
                 <div className="text-center space-y-6">
                   <CheckCircle className="w-16 h-16 text-toxic-slime mx-auto" />
                   <div>
-                    <h3 className="font-orbitron font-bold text-xl text-toxic-slime mb-2">warp successful!</h3>
+                    <h3 className="font-orbitron font-bold text-xl text-toxic-slime mb-2">transfer successful!</h3>
                     <p className="text-soda-chrome font-vt323 text-sm">tokens teleported across chains</p>
                   </div>
 
@@ -566,7 +573,7 @@ export default function WarpDrive() {
                       className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/90 font-vt323 flex-1"
                       onMouseEnter={() => playSound("hover")}
                     >
-                      warp again
+                      bridge again
                     </Button>
                   </div>
                 </div>
@@ -593,7 +600,7 @@ export default function WarpDrive() {
                 <div className="text-center space-y-6">
                   <AlertTriangle className="w-16 h-16 text-laser-berry mx-auto" />
                   <div>
-                    <h3 className="font-orbitron font-bold text-xl text-laser-berry mb-2">warp failed</h3>
+                    <h3 className="font-orbitron font-bold text-xl text-laser-berry mb-2">transfer failed</h3>
                     <p className="text-ghost-grey font-vt323 text-sm">{transferState.error}</p>
                   </div>
 
@@ -614,7 +621,7 @@ export default function WarpDrive() {
                       className="bg-laser-berry text-midnight-void hover:bg-laser-berry/90 font-vt323 flex-1"
                       onMouseEnter={() => playSound("hover")}
                     >
-                      retry warp
+                      retry transfer
                     </Button>
                   </div>
                 </div>

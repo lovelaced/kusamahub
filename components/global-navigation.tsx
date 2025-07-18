@@ -12,9 +12,7 @@ import { useSoundContext } from "@/components/sound-provider"
 
 const navItems = [
   { name: "arcade", href: "/arcade" },
-  { name: "warp-drive", href: "/warp-drive" },
-  { name: "arena", href: "/arena" },
-  { name: "coretime", href: "/coretime" },
+  { name: "bridge", href: "/bridge" },
   { name: "docs", href: "/docs" },
   { name: "chaos log", href: "/chaos-log" },
 ]

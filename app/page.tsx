@@ -207,14 +207,14 @@ export default function KusamaHub() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <Link href="/warp-drive">
+            <Link href="/bridge">
               <Button
                 size="lg"
                 className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/90 font-bold px-8 py-4 text-lg"
                 onClick={() => playSound("warp")}
               >
                 <Zap className="w-5 h-5 mr-2" />
-                initiate jump
+                bridge funds
               </Button>
             </Link>
             <Link href="/arcade">

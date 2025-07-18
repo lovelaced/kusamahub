@@ -65,7 +65,7 @@ Water plant every 4h, fertilize optional. Compounding yield table. Lose progress
 16×16 grid warfare. Capture nodes, stake KSM, earn yield. 5% burn tax funds the drip. Gang up on whales.
 
 ### 🎯 Futarchy Markets
-Prediction markets for governance outcomes. Bet KSM on referendum results, coretime sales, treasury burns.
+Prediction markets for governance outcomes. Bet KSM on referendum results, governance decisions, treasury burns.
 
 ### 🎡 Kusama Khaos
 Spin wheel of active validators. Bet on slash events. Chaos theory meets consensus mechanisms.
@@ -162,7 +162,7 @@ The Warp Drive feature enables real KSM transfers between Kusama and Asset Hub u
    - [Polkadot.js Extension](https://polkadot.js.org/extension/)
 
 2. **Connect Your Wallet**
-   - Navigate to http://localhost:3000/warp-drive
+   - Navigate to http://localhost:3000/bridge
    - Click on the wallet connection prompt
    - Select your extension and authorize the connection
    - Choose an account with KSM balance
@@ -204,7 +204,7 @@ app/
 ├── glitch-garden/   # Idle farming game
 ├── data-heist/      # Grid territory game
 ├── loot-tombola/    # Daily raffle system
-├── warp-drive/      # XCM bridge interface (LIVE with real transfers)
+├── bridge/          # KSM bridge to Asset Hub (LIVE with real transfers)
 ├── transmogrifier/  # EVM wrapper tool
 ├── bingo/           # Futarchy prediction markets
 ├── docs/            # Documentation and guides
