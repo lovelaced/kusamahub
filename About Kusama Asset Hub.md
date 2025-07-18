@@ -21,8 +21,13 @@ Block Explorer (Substrate): https://assethub-kusama.subscan.io/
 It is recommended that anyone wishing to deploy a smart contract on Kusama Asset Hub first deploy it on the Paseo Testnet. Currently, Passet Hub is the most up-to-date and stable testnet.
 
 Network name: Polkadot Hub TestNet
+
 Currency Symbol: PAS
+
 Chain ID: 420420422
+
 RPC URL: https://testnet-passet-hub-eth-rpc.polkadot.io
+
 Block Explorer: https://blockscout-passet-hub.parity-testnet.parity.io/
-Faucet: https://faucet.polkadot.io/?parachain=1111
+
+Faucet: https://faucet.polkadot.io/?parachain=111
