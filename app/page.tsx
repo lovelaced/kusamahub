@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { useSoundContext } from "@/components/sound-provider"
+import dynamic from "next/dynamic"
+
+// Dynamically import CyberpunkWaves to avoid SSR issues with Three.js
+const CyberpunkWaves = dynamic(() => import("@/components/cyberpunk-waves"), {
+  ssr: false,
+  loading: () => <div className="fixed inset-0 bg-midnight-void -z-10" />
+})
 
 export default function KusamaHub() {
   const { playSound } = useSoundContext()
@@ -134,8 +141,11 @@ export default function KusamaHub() {
 
   return (
     <div
-      className={`min-h-screen bg-midnight-void text-ghost-grey font-inter flex flex-col ${zomboMode ? "animate-pulse" : ""}`}
+      className={`min-h-screen bg-transparent text-ghost-grey font-inter flex flex-col ${zomboMode ? "animate-pulse" : ""}`}
     >
+      {/* CyberpunkWaves Background */}
+      <CyberpunkWaves />
+
       {/* Custom Cursor Trail */}
       <div className="fixed inset-0 pointer-events-none z-50">
         {cursorTrail.map((dot, index) => (
@@ -154,16 +164,6 @@ export default function KusamaHub() {
 
       {/* Hero Canvas - Flex grow to take available space */}
       <section className="relative flex-1 flex items-center justify-center overflow-hidden pt-20">
-        {/* Animated Background */}
-        <div className="absolute inset-0 opacity-20">
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `conic-gradient(at 30% 120%, #00faff 25%, #ff006e 50%, #b6ff00 75%, transparent)`,
-              animation: zomboMode ? "spin 10s linear infinite" : "spin 20s linear infinite",
-            }}
-          />
-        </div>
 
         <div className="relative z-10 text-center max-w-4xl mx-auto px-4 py-8">
           {/* Rotating Timecube */}
