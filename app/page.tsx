@@ -134,7 +134,7 @@ export default function KusamaHub() {
 
   return (
     <div
-      className={`min-h-screen bg-midnight-void text-ghost-grey font-inter pt-16 ${zomboMode ? "animate-pulse" : ""}`}
+      className={`min-h-screen bg-midnight-void text-ghost-grey font-inter flex flex-col ${zomboMode ? "animate-pulse" : ""}`}
     >
       {/* Custom Cursor Trail */}
       <div className="fixed inset-0 pointer-events-none z-50">
@@ -152,120 +152,116 @@ export default function KusamaHub() {
         ))}
       </div>
 
-      {/* Main Content Container */}
-      <div className="flex flex-col h-full">
-        {/* Hero Canvas */}
-        <section className="relative flex-1 flex items-center justify-center overflow-hidden">
-          {/* Animated Background */}
-          <div className="absolute inset-0 opacity-20">
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `conic-gradient(at 30% 120%, #00faff 25%, #ff006e 50%, #b6ff00 75%, transparent)`,
-                animation: zomboMode ? "spin 10s linear infinite" : "spin 20s linear infinite",
-              }}
-            />
-          </div>
+      {/* Hero Canvas - Flex grow to take available space */}
+      <section className="relative flex-1 flex items-center justify-center overflow-hidden pt-20">
+        {/* Animated Background */}
+        <div className="absolute inset-0 opacity-20">
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `conic-gradient(at 30% 120%, #00faff 25%, #ff006e 50%, #b6ff00 75%, transparent)`,
+              animation: zomboMode ? "spin 10s linear infinite" : "spin 20s linear infinite",
+            }}
+          />
+        </div>
 
-          <div className="relative z-10 text-center max-w-4xl mx-auto px-4">
-            {/* Rotating Timecube */}
-            <motion.div
-              className="mb-8 flex justify-center"
-              animate={{
-                rotateY: 360,
-                rotateX: zomboMode ? 360 : 0,
-              }}
-              transition={{
-                duration: zomboMode ? 3 : 6,
-                repeat: Number.POSITIVE_INFINITY,
-                ease: "linear",
-              }}
-            >
-              <div className="w-32 h-32 relative">
-                <div className="absolute inset-0 border-2 border-toxic-slime bg-toxic-slime/10 transform rotate-12" />
-                <div className="absolute inset-0 border-2 border-laser-berry bg-laser-berry/10 transform -rotate-12" />
-                <div className="absolute inset-0 border-2 border-aqua-glitch bg-aqua-glitch/10" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="font-vt323 text-2xl text-toxic-slime">HUB</span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Randomized Headline */}
-            <motion.h1
-              className="text-4xl md:text-6xl lg:text-7xl font-orbitron font-black mb-6 leading-tight"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-            >
-              <span className="text-toxic-slime">{firstLine}</span>
-              <br />
-              <span className="text-laser-berry">{secondLine}</span>
-            </motion.h1>
-
-            {/* CTA Buttons */}
-            <motion.div
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-            >
-              <Link href="/warp-drive">
-                <Button
-                  size="lg"
-                  className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/90 font-bold px-8 py-3 text-lg"
-                  onClick={() => playSound("warp")}
-                >
-                  <Zap className="w-5 h-5 mr-2" />
-                  initiate jump
-                </Button>
-              </Link>
-              <Link href="/arcade">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-laser-berry text-laser-berry hover:bg-laser-berry/10 font-bold px-8 py-3 text-lg bg-transparent"
-                  onClick={() => playSound("click")}
-                >
-                  <Shuffle className="w-5 h-5 mr-2" />
-                  random dapp
-                </Button>
-              </Link>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Marquee Zone - Fixed at bottom */}
-        <div className="bg-toxic-slime text-midnight-void py-3 overflow-hidden">
+        <div className="relative z-10 text-center max-w-4xl mx-auto px-4 py-8">
+          {/* Rotating Timecube */}
           <motion.div
-            className="whitespace-nowrap font-vt323 text-lg font-bold"
-            animate={{ x: zomboMode ? [0, -2000] : [0, -1000] }}
+            className="mb-8 flex justify-center"
+            animate={{
+              rotateY: 360,
+              rotateX: zomboMode ? 360 : 0,
+            }}
             transition={{
-              duration: zomboMode ? 15 : 30,
+              duration: zomboMode ? 3 : 6,
               repeat: Number.POSITIVE_INFINITY,
               ease: "linear",
             }}
           >
-            {marqueeText} {marqueeText} {marqueeText}
+            <div className="w-32 h-32 relative">
+              <div className="absolute inset-0 border-2 border-toxic-slime bg-toxic-slime/10 transform rotate-12" />
+              <div className="absolute inset-0 border-2 border-laser-berry bg-laser-berry/10 transform -rotate-12" />
+              <div className="absolute inset-0 border-2 border-aqua-glitch bg-aqua-glitch/10" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="font-vt323 text-2xl text-toxic-slime">HUB</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Randomized Headline */}
+          <motion.h1
+            className="text-4xl md:text-6xl lg:text-7xl font-orbitron font-black mb-8 leading-tight"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <span className="text-toxic-slime block">{firstLine}</span>
+            <span className="text-laser-berry block">{secondLine}</span>
+          </motion.h1>
+
+          {/* CTA Buttons */}
+          <motion.div
+            className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            <Link href="/warp-drive">
+              <Button
+                size="lg"
+                className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/90 font-bold px-8 py-4 text-lg"
+                onClick={() => playSound("warp")}
+              >
+                <Zap className="w-5 h-5 mr-2" />
+                initiate jump
+              </Button>
+            </Link>
+            <Link href="/arcade">
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-laser-berry text-laser-berry hover:bg-laser-berry/10 font-bold px-8 py-4 text-lg bg-transparent"
+                onClick={() => playSound("click")}
+              >
+                <Shuffle className="w-5 h-5 mr-2" />
+                random dapp
+              </Button>
+            </Link>
           </motion.div>
         </div>
+      </section>
 
-        {/* Footer */}
-        <footer className="border-t border-soda-chrome/30 py-4 px-4 text-center bg-midnight-void/95">
-          <p className="text-soda-chrome font-vt323 text-sm">
-            powered by canaries // you can do anything at zombodotcom
-          </p>
-          {zomboMode && (
-            <motion.p
-              className="text-laser-berry font-vt323 text-lg mt-2"
-              animate={{ opacity: [0, 1, 0] }}
-              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
-            >
-              🧟 you have entered zombo mode. you can DO anything. 🧟
-            </motion.p>
-          )}
-        </footer>
+      {/* News Ticker - At the bottom */}
+      <div className="bg-toxic-slime text-midnight-void py-3 overflow-hidden">
+        <motion.div
+          className="whitespace-nowrap font-vt323 text-lg font-bold"
+          animate={{ x: zomboMode ? [0, -2000] : [0, -1000] }}
+          transition={{
+            duration: zomboMode ? 15 : 30,
+            repeat: Number.POSITIVE_INFINITY,
+            ease: "linear",
+          }}
+        >
+          {marqueeText} {marqueeText} {marqueeText}
+        </motion.div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-soda-chrome/30 py-4 px-4 text-center bg-midnight-void/95">
+        <p className="text-soda-chrome font-vt323 text-sm">
+          powered by canaries // you can do anything at zombodotcom
+        </p>
+        {zomboMode && (
+          <motion.p
+            className="text-laser-berry font-vt323 text-lg mt-2"
+            animate={{ opacity: [0, 1, 0] }}
+            transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
+          >
+            🧟 you have entered zombo mode. you can DO anything. 🧟
+          </motion.p>
+        )}
+      </footer>
     </div>
   )
 }
