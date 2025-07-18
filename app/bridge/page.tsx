@@ -42,6 +42,8 @@ export default function Bridge() {
   // Transfer hook
   const { prepareTransfer, submitTransfer, state: transferState, reset: resetTransfer } = useTransfer()
   const [showFeeDialog, setShowFeeDialog] = useState(false)
+  const [estimatedFees, setEstimatedFees] = useState<bigint | null>(null)
+  const [isEstimatingFees, setIsEstimatingFees] = useState(false)
 
   // Convert balance to human readable format
   const formatBalance = (balance: bigint, decimals: number) => {
@@ -68,7 +70,7 @@ export default function Bridge() {
     )
 
     try {
-      await prepareTransfer(
+      const tx = await prepareTransfer(
         selectedAccount,
         recipientAddress,
         amountInSmallestUnit,
@@ -76,6 +78,19 @@ export default function Bridge() {
         destChain as ChainId,
         selectedAsset
       )
+      
+      // Estimate fees
+      setIsEstimatingFees(true)
+      try {
+        const fees = await tx.getEstimatedFees(selectedAccount.address)
+        setEstimatedFees(fees)
+      } catch (error) {
+        console.error("Failed to estimate fees:", error)
+        setEstimatedFees(null)
+      } finally {
+        setIsEstimatingFees(false)
+      }
+      
       setShowFeeDialog(true)
     } catch (error) {
       console.error("Failed to prepare transfer:", error)
@@ -98,6 +113,7 @@ export default function Bridge() {
     setDestChain("")
     setAmount("")
     setRecipientAddress("")
+    setEstimatedFees(null)
     resetTransfer()
   }
 
@@ -464,8 +480,14 @@ export default function Bridge() {
                       </div>
                     </div>
 
-                    <div className="text-xs text-soda-chrome font-vt323 bg-amber-crt/10 border border-amber-crt/30 p-3 rounded">
-                      xcm teleportation will burn tokens on source chain and mint on destination
+                    <div className="space-y-2">
+                      <div className="text-xs text-soda-chrome font-vt323 bg-amber-crt/10 border border-amber-crt/30 p-3 rounded">
+                        xcm teleportation will burn tokens on source chain and mint on destination
+                      </div>
+                      <div className="text-xs text-aqua-glitch font-vt323 bg-aqua-glitch/10 border border-aqua-glitch/30 p-3 rounded flex items-center space-x-2">
+                        <Info className="w-4 h-4" />
+                        <span>fees will be deducted from your source chain balance</span>
+                      </div>
                     </div>
 
                     <div className="flex space-x-3">
@@ -658,14 +680,38 @@ export default function Bridge() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="font-vt323 text-soda-chrome">estimated fee:</span>
-                      <span className="font-vt323 text-amber-crt">calculating...</span>
+                      <span className="font-vt323 text-amber-crt">
+                        {isEstimatingFees ? "calculating..." : 
+                         estimatedFees ? formatBalance(estimatedFees, ASSET_DECIMALS.KSM) + " KSM" : 
+                         "unable to estimate"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-vt323 text-soda-chrome">total:</span>
+                      <span className="font-vt323 text-ghost-grey">
+                        {estimatedFees && !isEstimatingFees ? 
+                          formatBalance(
+                            BigInt(Math.floor(Number.parseFloat(amount) * 10 ** ASSET_DECIMALS.KSM)) + estimatedFees,
+                            ASSET_DECIMALS.KSM
+                          ) + " KSM" : 
+                          "..."}
+                      </span>
                     </div>
                   </div>
+
+                  {estimatedFees && !isEstimatingFees && sourceBalance && 
+                   BigInt(Math.floor(Number.parseFloat(amount) * 10 ** ASSET_DECIMALS.KSM)) + estimatedFees > sourceBalance && (
+                    <div className="text-xs text-laser-berry font-vt323 bg-laser-berry/10 border border-laser-berry/30 p-3 rounded flex items-center space-x-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>insufficient balance to cover amount and fees</span>
+                    </div>
+                  )}
 
                   <div className="flex space-x-3">
                     <Button
                       onClick={() => {
                         setShowFeeDialog(false)
+                        setEstimatedFees(null)
                         resetTransfer()
                       }}
                       variant="outline"
@@ -676,7 +722,11 @@ export default function Bridge() {
                     </Button>
                     <Button
                       onClick={handleSubmitTransfer}
-                      disabled={transferState.isLoading}
+                      disabled={
+                        transferState.isLoading || 
+                        (estimatedFees && sourceBalance && 
+                         BigInt(Math.floor(Number.parseFloat(amount) * 10 ** ASSET_DECIMALS.KSM)) + estimatedFees > sourceBalance)
+                      }
                       className="bg-toxic-slime text-midnight-void hover:bg-toxic-slime/90 font-vt323 flex-1 font-bold"
                     >
                       {transferState.isLoading ? (
