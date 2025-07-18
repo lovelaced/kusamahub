@@ -1,12 +1,12 @@
 # About kusamahub.com
-kusamahub.com is an open-source and community operated website which was created during the web3summit 2025 hackathon. It's purpose is to serve as a central hub for dapps and smart contracts which are built on Kusama Asset Hub, allowing these applications to be discovered by users.
+kusamahub.com is an open-source and community-operated website that was created during the web3summit 2025 hackathon. Its purpose is to serve as a central hub for dapps and smart contracts which are built on Kusama Asset Hub, allowing these applications to be discovered by users.
 
-kusamahub.com offers various blockchain utilities for users such as transfers, XCM transfers and the ability for users to discover applications that they wish to use. If you wish to have your application be featured on kusamahub.com, then please see [LINK_TO_THAT_BIT]
+kusamahub.com offers various blockchain utilities for users such as transfers, XCM transfers, and the ability for users to discover applications that they wish to use.
 
-kusamahub.com is an independant community operated website that serves as an informational hub for smart contracts and decentralized applications (dApps) built on the Kusama Asset Hub blockchain.
+kusamahub.com is an independent community-operated website that serves as an informational hub for smart contracts and decentralized applications (dApps) built on the Kusama Asset Hub blockchain.
 
 ## Important Notice:
-- **Not officially affiliated**: this website is not officially affiliated with, endorsed by, or otherwise to the Kusama blockchain network brand, the Web3Foundation, or any other official Kusama project entities.
+- **Not officially affiliated**: This website is not officially affiliated with, endorsed by, or otherwise associated with the Kusama blockchain network brand, the Web3Foundation, or any other official Kusama project entities.
 - **No trademark or copyright infringement**: This website does not claim ownership of any trademarks, copyrights, or intellectual property rights associated with the name "Kusama" or related terms. We acknowledge the existing rights holders and make no claim to infringe upon any protected intellectual property.
 - **Community resource**:  kusamahub.com operates as an independent community resource, similar to a fan website, providing information and tools related to the Kusama blockchain ecosystem.
 - **No impersonation intended**: We do not intend to impersonate, misrepresent, or falsely associate ourselves with any official Kusama entities, the Web3 Foundation, or Yayoi Kusama.
@@ -22,4 +22,4 @@ kusamahub.com provides a graphical user interface (GUI) to facilitate interactio
 - **No Control Over Usage**: We have no ability to control, modify, or restrict how users interact with these permissionless smart contracts. Users interact directly with the blockchain when using our interface.
 - **User Responsibility**: Users are solely responsible for their interactions with smart contracts and compliance with applicable laws and regulations in their jurisdiction.
 
-By using this interface, you acknowledge that you are interacting directly with decentralized blockchain infrastructure, and that kusamahub.com serves only as a gateway to facilitate such interactions.
+By using this interface, you acknowledge that you are interacting directly with decentralized blockchain infrastructure and that kusamahub.com serves only as a gateway to facilitate such interactions.
