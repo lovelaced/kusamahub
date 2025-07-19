@@ -1,0 +1,12 @@
+{
+  "network": "passetHub",
+  "contracts": {
+    "PvPGrid": "0x7cA9c321C6297eb53cdfC7957416d598a53DFD2D"
+  },
+  "parameters": {
+    "entryFee": "1.0 PAS",
+    "gameFee": "10%",
+    "teamWallet": "0x446b7036fCbfa3378b6fCDF66c7269d6473434bb"
+  },
+  "deployedAt": "2025-07-19T14:27:00.595Z"
+}
