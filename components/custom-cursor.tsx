@@ -9,6 +9,7 @@ function CustomCursor() {
   const targetRef = useRef({ x: 0, y: 0 })
   const isHoveringRef = useRef(false)
   const isClickingRef = useRef(false)
+  const isOverCanvasRef = useRef(false)
   const animationFrameRef = useRef<number>(0)
 
   useEffect(() => {
@@ -46,6 +47,20 @@ function CustomCursor() {
 
     const checkHover = () => {
       const element = document.elementFromPoint(targetRef.current.x, targetRef.current.y)
+      
+      // Check if hovering over canvas
+      const isOverCanvas = element && (element.tagName === 'CANVAS' || element.closest('canvas'))
+      if (isOverCanvas !== isOverCanvasRef.current) {
+        isOverCanvasRef.current = !!isOverCanvas
+        
+        // Hide/show cursor based on canvas hover
+        if (cursorRef.current && dotRef.current) {
+          const opacity = isOverCanvas ? '0' : '1'
+          cursorRef.current.style.opacity = opacity
+          dotRef.current.style.opacity = opacity
+        }
+      }
+      
       const isHovering =
         element &&
         (element.matches('button, a, input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])') ||
@@ -101,8 +116,9 @@ function CustomCursor() {
         style={{
           border: "2px solid #00ffff",
           borderRadius: "50%",
-          willChange: "transform",
-          transition: "border-color 100ms ease-out",
+          willChange: "transform, opacity",
+          transition: "border-color 100ms ease-out, opacity 150ms ease-out",
+          opacity: 1,
         }}
       >
         <div
@@ -120,8 +136,9 @@ function CustomCursor() {
         style={{
           backgroundColor: "#00ff88",
           borderRadius: "50%",
-          willChange: "transform",
-          transition: "none",
+          willChange: "transform, opacity",
+          transition: "opacity 150ms ease-out",
+          opacity: 1,
         }}
       />
     </>

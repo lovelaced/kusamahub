@@ -75,12 +75,13 @@ export default function PixelPillage() {
   const [success, setSuccess] = useState("")
   
   // View state
-  const [zoom, setZoom] = useState(0.5)
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(10) // Start zoomed in like dot-pixel
+  const [panOffset, setPanOffset] = useState({ x: 50, y: 50 }) // Start slightly panned in
   const [isPanning, setIsPanning] = useState(false)
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 })
   const [showGrid, setShowGrid] = useState(true)
   const [hoveredPixel, setHoveredPixel] = useState<{ x: number; y: number } | null>(null)
+  const [, forceUpdate] = useState({})
   
   // Stats
   const [totalPixelsPlaced, setTotalPixelsPlaced] = useState(0)
@@ -137,20 +138,30 @@ export default function PixelPillage() {
     
     setLoading(true)
     try {
-      // Get past events to build canvas state
-      const filter = contract.filters.PixelPlaced()
-      const events = await contract.queryFilter(filter, -10000) // Last 10k blocks
+      console.log('Loading canvas data from blockchain events...')
+      
+      // Get all PixelPlaced and BatchPixelsPlaced events from block 0 to latest
+      const pixelPlacedFilter = contract.filters.PixelPlaced()
+      const batchPixelsPlacedFilter = contract.filters.BatchPixelsPlaced()
+      
+      // Query past events (from block 0 to latest for full historical data)
+      const [singleEvents, batchEvents] = await Promise.all([
+        contract.queryFilter(pixelPlacedFilter, 0, 'latest'),
+        contract.queryFilter(batchPixelsPlacedFilter, 0, 'latest')
+      ])
+      
+      console.log(`Found ${singleEvents.length} single pixel events and ${batchEvents.length} batch events`)
       
       const newPixels = new Map<string, Pixel>()
       
-      for (const event of events) {
+      // Process single pixel events
+      for (const event of singleEvents) {
         const args = event.args
         if (args) {
-          // Get coordinates from pixelId
           const pixelId = Number(args.pixelId)
-          const coords = await contract.getPixelCoordinates(pixelId)
-          const x = Number(coords.x)
-          const y = Number(coords.y)
+          // Calculate coordinates directly from pixelId to avoid extra contract calls
+          const x = pixelId % CANVAS_CONFIG.width
+          const y = Math.floor(pixelId / CANVAS_CONFIG.width)
           const key = `${x}-${y}`
           
           // Convert uint32 color to hex
@@ -167,6 +178,40 @@ export default function PixelPillage() {
         }
       }
       
+      // Process batch pixel events
+      for (const event of batchEvents) {
+        const args = event.args
+        if (args) {
+          const owner = args.owner
+          const pixelIds = args.pixelIds
+          const colors = args.colors
+          const timestamp = Number(args.timestamp) * 1000
+          
+          for (let i = 0; i < pixelIds.length; i++) {
+            const pixelId = Number(pixelIds[i])
+            const color = Number(colors[i])
+            
+            // Calculate coordinates directly from pixelId
+            const x = pixelId % CANVAS_CONFIG.width
+            const y = Math.floor(pixelId / CANVAS_CONFIG.width)
+            const key = `${x}-${y}`
+            
+            // Convert uint32 color to hex
+            const colorHex = `#${color.toString(16).padStart(6, '0')}`
+            
+            newPixels.set(key, {
+              x,
+              y,
+              color: colorHex,
+              owner,
+              timestamp,
+              blockHeight: event.blockNumber,
+            })
+          }
+        }
+      }
+      
+      console.log(`Loaded ${newPixels.size} pixels from blockchain`)
       setPixels(newPixels)
       setTotalPixelsPlaced(newPixels.size)
       
@@ -197,9 +242,9 @@ export default function PixelPillage() {
 
     const handlePixelPlaced = async (pixelId: bigint, owner: string, color: number, fee: bigint, timestamp: bigint, event: any) => {
       try {
-        const coords = await contract.getPixelCoordinates(pixelId)
-        const x = Number(coords.x)
-        const y = Number(coords.y)
+        // Calculate coordinates directly from pixelId to avoid extra contract calls
+        const x = Number(pixelId) % CANVAS_CONFIG.width
+        const y = Math.floor(Number(pixelId) / CANVAS_CONFIG.width)
         const key = `${x}-${y}`
         
         // Convert uint32 color to hex
@@ -227,9 +272,51 @@ export default function PixelPillage() {
       }
     }
 
+    const handleBatchPixelsPlaced = async (owner: string, pixelIds: bigint[], colors: number[], totalFee: bigint, timestamp: bigint, event: any) => {
+      try {
+        setPixels(prev => {
+          const newPixels = new Map(prev)
+          
+          for (let i = 0; i < pixelIds.length; i++) {
+            const pixelId = Number(pixelIds[i])
+            const color = colors[i]
+            
+            // Calculate coordinates directly from pixelId
+            const x = pixelId % CANVAS_CONFIG.width
+            const y = Math.floor(pixelId / CANVAS_CONFIG.width)
+            const key = `${x}-${y}`
+            
+            // Convert uint32 color to hex
+            const colorHex = `#${color.toString(16).padStart(6, '0')}`
+            
+            newPixels.set(key, {
+              x,
+              y,
+              color: colorHex,
+              owner,
+              timestamp: Number(timestamp) * 1000,
+              blockHeight: event.blockNumber,
+            })
+          }
+          
+          return newPixels
+        })
+        
+        if (owner.toLowerCase() === userAddress.toLowerCase()) {
+          setUserPixelCount(prev => prev + pixelIds.length)
+        }
+        setTotalPixelsPlaced(prev => prev + pixelIds.length)
+      } catch (err) {
+        console.error("Error handling batch pixels placed event:", err)
+      }
+    }
+
     contract.on("PixelPlaced", handlePixelPlaced)
+    contract.on("BatchPixelsPlaced", handleBatchPixelsPlaced)
+    
     return () => {
       contract.off("PixelPlaced", handlePixelPlaced)
+      contract.off("BatchPixelsPlaced", handleBatchPixelsPlaced)
     }
   }, [contract, userAddress])
 
@@ -260,77 +347,157 @@ export default function PixelPillage() {
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    // Clear canvas
-    ctx.fillStyle = "#050006"
-    ctx.fillRect(0, 0, CANVAS_CONFIG.width, CANVAS_CONFIG.height)
+    // Clear canvas with white background for better visibility
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    
+    // Save the current transform
+    ctx.save()
+    
+    // Apply pan and zoom
+    ctx.translate(panOffset.x, panOffset.y)
+    ctx.scale(zoom, zoom)
+    
+    // Disable smoothing for crisp pixel rendering
+    ctx.imageSmoothingEnabled = false
 
     // Draw grid if enabled
-    if (showGrid && zoom > 0.1) {
-      ctx.strokeStyle = "#1a1a1a"
-      ctx.lineWidth = 1
+    // Draw advanced grid with zoom-responsive visibility  
+    if (showGrid && zoom > 3) {
+      // Dynamic grid styling based on zoom level
+      ctx.strokeStyle = zoom > 8 ? '#d0d0d0' : '#e8e8e8'
+      ctx.lineWidth = zoom > 8 ? 1 / zoom : 0.5 / zoom
       
-      // Draw vertical lines
-      for (let x = 0; x <= CANVAS_CONFIG.width; x += 10) {
+      // Calculate visible area for viewport culling
+      const viewLeft = Math.max(0, Math.floor(-panOffset.x / zoom))
+      const viewTop = Math.max(0, Math.floor(-panOffset.y / zoom))
+      const viewRight = Math.min(CANVAS_CONFIG.width, Math.floor((canvas.width - panOffset.x) / zoom))
+      const viewBottom = Math.min(CANVAS_CONFIG.height, Math.floor((canvas.height - panOffset.y) / zoom))
+      
+      // Draw only visible vertical lines
+      for (let x = Math.max(0, viewLeft); x <= Math.min(CANVAS_CONFIG.width, viewRight); x++) {
         ctx.beginPath()
-        ctx.moveTo(x, 0)
-        ctx.lineTo(x, CANVAS_CONFIG.height)
+        ctx.moveTo(x, Math.max(0, viewTop))
+        ctx.lineTo(x, Math.min(CANVAS_CONFIG.height, viewBottom))
         ctx.stroke()
       }
       
-      // Draw horizontal lines
-      for (let y = 0; y <= CANVAS_CONFIG.height; y += 10) {
+      // Draw only visible horizontal lines
+      for (let y = Math.max(0, viewTop); y <= Math.min(CANVAS_CONFIG.height, viewBottom); y++) {
         ctx.beginPath()
-        ctx.moveTo(0, y)
-        ctx.lineTo(CANVAS_CONFIG.width, y)
+        ctx.moveTo(Math.max(0, viewLeft), y)
+        ctx.lineTo(Math.min(CANVAS_CONFIG.width, viewRight), y)
         ctx.stroke()
       }
     }
 
-    // Draw pixels
-    pixels.forEach((pixel) => {
-      ctx.fillStyle = pixel.color
-      ctx.fillRect(pixel.x, pixel.y, 1, 1)
-    })
+    // Draw pixels with viewport culling for performance
+    const viewLeft = Math.max(0, Math.floor(-panOffset.x / zoom))
+    const viewTop = Math.max(0, Math.floor(-panOffset.y / zoom))
+    const viewRight = Math.min(CANVAS_CONFIG.width, Math.floor((canvas.width - panOffset.x) / zoom))
+    const viewBottom = Math.min(CANVAS_CONFIG.height, Math.floor((canvas.height - panOffset.y) / zoom))
+    
+    // Only render pixels in the visible area
+    for (let y = Math.max(0, viewTop); y < Math.min(CANVAS_CONFIG.height, viewBottom); y++) {
+      for (let x = Math.max(0, viewLeft); x < Math.min(CANVAS_CONFIG.width, viewRight); x++) {
+        const key = `${x}-${y}`
+        const pixel = pixels.get(key)
+        
+        if (pixel && pixel.color !== '#ffffff') {
+          ctx.fillStyle = pixel.color
+          ctx.fillRect(x, y, 1, 1)
+        }
+      }
+    }
 
     // Highlight selected pixels
-    ctx.strokeStyle = "#b6ff00"
-    ctx.lineWidth = 1
     selectedPixels.forEach(key => {
       const [x, y] = key.split('-').map(Number)
-      ctx.strokeRect(x, y, 1, 1)
+      if (x >= viewLeft && x <= viewRight && y >= viewTop && y <= viewBottom) {
+        ctx.fillStyle = selectedColor.hex
+        ctx.globalAlpha = 0.8
+        ctx.fillRect(x, y, 1, 1)
+        
+        // Add selection border
+        ctx.strokeStyle = '#4ecdc4'
+        ctx.lineWidth = 0.1
+        ctx.globalAlpha = 1
+        ctx.strokeRect(x, y, 1, 1)
+      }
     })
     
     // Highlight hovered pixel
-    if (hoveredPixel && zoom > 0.2) {
-      ctx.strokeStyle = "#ffffff"
-      ctx.lineWidth = 0.5
-      ctx.strokeRect(hoveredPixel.x, hoveredPixel.y, 1, 1)
+    if (hoveredPixel) {
+      const x = hoveredPixel.x
+      const y = hoveredPixel.y
+      if (x >= viewLeft && x <= viewRight && y >= viewTop && y <= viewBottom) {
+        ctx.strokeStyle = '#666666'
+        ctx.lineWidth = 0.15
+        ctx.setLineDash([0.3, 0.3])
+        ctx.strokeRect(x, y, 1, 1)
+        ctx.setLineDash([])
+      }
     }
-  }, [pixels, selectedPixels, hoveredPixel, showGrid, zoom])
+    
+    // Draw canvas border
+    ctx.strokeStyle = '#333333'
+    ctx.lineWidth = 2 / zoom
+    ctx.strokeRect(0, 0, CANVAS_CONFIG.width, CANVAS_CONFIG.height)
+    
+    ctx.restore()
+  }, [pixels, selectedPixels, hoveredPixel, showGrid, zoom, panOffset])
+
+  // Resize canvas to container and redraw
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const container = containerRef.current
+    if (!canvas || !container) return
+
+    const resizeCanvas = () => {
+      canvas.width = container.clientWidth
+      canvas.height = container.clientHeight
+      drawCanvas()
+    }
+
+    resizeCanvas()
+    window.addEventListener('resize', resizeCanvas)
+    return () => window.removeEventListener('resize', resizeCanvas)
+  }, [drawCanvas])
 
   useEffect(() => {
     drawCanvas()
   }, [drawCanvas])
 
   // Handle canvas interaction
-  const handleCanvasMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (event.button === 2 || event.button === 1) { // Right or middle click
-      setIsPanning(true)
-      setLastMousePos({ x: event.clientX, y: event.clientY })
-      event.preventDefault()
-    } else if (event.button === 0) { // Left click
-      const canvas = canvasRef.current
-      if (!canvas) return
+  const getPixelFromMouse = useCallback((e: React.MouseEvent): { x: number; y: number } | null => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
 
-      const rect = canvas.getBoundingClientRect()
-      const scaleX = CANVAS_CONFIG.width / (rect.width / zoom)
-      const scaleY = CANVAS_CONFIG.height / (rect.height / zoom)
+    const rect = canvas.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
 
-      const x = Math.floor(((event.clientX - rect.left) / zoom - panOffset.x) * scaleX)
-      const y = Math.floor(((event.clientY - rect.top) / zoom - panOffset.y) * scaleY)
+    // Convert to canvas coordinates
+    const canvasX = (mouseX - panOffset.x) / zoom
+    const canvasY = (mouseY - panOffset.y) / zoom
 
-      if (x >= 0 && x < CANVAS_CONFIG.width && y >= 0 && y < CANVAS_CONFIG.height) {
-        const key = `${x}-${y}`
+    // Convert to pixel coordinates
+    const pixelX = Math.floor(canvasX)
+    const pixelY = Math.floor(canvasY)
+
+    if (pixelX >= 0 && pixelX < CANVAS_CONFIG.width && 
+        pixelY >= 0 && pixelY < CANVAS_CONFIG.height) {
+      return { x: pixelX, y: pixelY }
+    }
+
+    return null
+  }, [zoom, panOffset])
+
+  const handleCanvasMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (event.button === 0) { // Left click
+      const pixel = getPixelFromMouse(event)
+      if (pixel) {
+        const key = `${pixel.x}-${pixel.y}`
         
         if (event.shiftKey || selectedPixels.size > 0) {
           // Multi-select mode
@@ -350,63 +517,151 @@ export default function PixelPillage() {
         
         playSound("click")
       }
+    } else if (event.button === 1 || event.button === 2) { // Middle or right click for panning
+      event.preventDefault()
+      event.stopPropagation()
+      
+      setIsPanning(true)
+      setLastMousePos({ x: event.clientX, y: event.clientY })
     }
-  }
+  }, [getPixelFromMouse, selectedPixels.size, playSound])
 
-  const handleCanvasMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const rect = canvas.getBoundingClientRect()
-    const scaleX = CANVAS_CONFIG.width / (rect.width / zoom)
-    const scaleY = CANVAS_CONFIG.height / (rect.height / zoom)
-
-    const x = Math.floor(((event.clientX - rect.left) / zoom - panOffset.x) * scaleX)
-    const y = Math.floor(((event.clientY - rect.top) / zoom - panOffset.y) * scaleY)
-
-    if (x >= 0 && x < CANVAS_CONFIG.width && y >= 0 && y < CANVAS_CONFIG.height) {
-      setHoveredPixel({ x, y })
-    } else {
-      setHoveredPixel(null)
-    }
-
+  const handleCanvasMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     if (isPanning) {
       const deltaX = event.clientX - lastMousePos.x
       const deltaY = event.clientY - lastMousePos.y
       
-      setPanOffset(prev => ({
-        x: prev.x + deltaX / zoom,
-        y: prev.y + deltaY / zoom
-      }))
+      // Apply sensitivity dampening (0.7 = 70% of original movement)
+      const sensitivity = 0.7
+      
+      // Direct pixel movement with sensitivity adjustment
+      setPanOffset(prev => {
+        const newOffset = {
+          x: prev.x + (deltaX * sensitivity),
+          y: prev.y + (deltaY * sensitivity)
+        }
+        // Force immediate re-render
+        requestAnimationFrame(() => {
+          forceUpdate({})
+        })
+        return newOffset
+      })
       
       setLastMousePos({ x: event.clientX, y: event.clientY })
+    } else {
+      const pixel = getPixelFromMouse(event)
+      setHoveredPixel(pixel)
     }
-  }
+  }, [isPanning, lastMousePos, getPixelFromMouse])
 
-  const handleCanvasMouseUp = () => {
-    setIsPanning(false)
-  }
+  const handleCanvasMouseUp = useCallback((event?: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isPanning) {
+      setIsPanning(false)
+    }
+  }, [isPanning])
 
-  const handleCanvasWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
-    event.preventDefault()
-    
-    const delta = event.deltaY > 0 ? 0.9 : 1.1
-    const newZoom = Math.max(0.1, Math.min(5, zoom * delta))
-    
-    setZoom(newZoom)
-  }
 
-  // Prevent context menu on right click
+  // BULLETPROOF scroll prevention using native capture phase event handling
   useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    // Native wheel handler that intercepts ALL wheel events in capture phase
+    const handleWheelCapture = (e: WheelEvent) => {
+      // IMMEDIATELY stop all event propagation 
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+      
+      const canvas = canvasRef.current
+      if (!canvas) return false
+
+      const rect = canvas.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+
+      // Only apply zoom if cursor is within canvas bounds
+      if (mouseX >= 0 && mouseX <= rect.width && mouseY >= 0 && mouseY <= rect.height) {
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
+        const newZoom = Math.max(0.05, Math.min(20, zoom * zoomFactor))
+
+        if (newZoom !== zoom) {
+          // Zoom towards mouse position
+          const zoomPointX = (mouseX - panOffset.x) / zoom
+          const zoomPointY = (mouseY - panOffset.y) / zoom
+
+          setPanOffset(prev => ({
+            x: mouseX - zoomPointX * newZoom,
+            y: mouseY - zoomPointY * newZoom
+          }))
+
+          setZoom(newZoom)
+        }
+      }
+      
+      return false // Extra safety
+    }
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (isPanning) {
+        e.preventDefault()
+        e.stopPropagation()
+        
+        const deltaX = e.clientX - lastMousePos.x
+        const deltaY = e.clientY - lastMousePos.y
+        
+        // Apply sensitivity dampening (0.7 = 70% of original movement)
+        const sensitivity = 0.7
+        
+        setPanOffset(prev => {
+          const newOffset = {
+            x: prev.x + (deltaX * sensitivity),
+            y: prev.y + (deltaY * sensitivity)
+          }
+          // Force immediate re-render for real-time panning
+          requestAnimationFrame(() => {
+            forceUpdate({})
+          })
+          return newOffset
+        })
+        
+        setLastMousePos({ x: e.clientX, y: e.clientY })
+      }
+    }
+    
+    const handleGlobalMouseUp = (e: MouseEvent) => {
+      if (isPanning) {
+        e.preventDefault()
+        setIsPanning(false)
+      }
+    }
+    
     const handleContextMenu = (e: Event) => {
       if (e.target === canvasRef.current) {
         e.preventDefault()
       }
     }
     
+    // Capture phase wheel events BEFORE they can trigger page scroll
+    container.addEventListener('wheel', handleWheelCapture, { 
+      passive: false,
+      capture: true 
+    })
+    
+    if (isPanning) {
+      document.addEventListener('mousemove', handleGlobalMouseMove, { passive: false })
+      document.addEventListener('mouseup', handleGlobalMouseUp, { passive: false })
+    }
+    
     document.addEventListener('contextmenu', handleContextMenu)
-    return () => document.removeEventListener('contextmenu', handleContextMenu)
-  }, [])
+    
+    return () => {
+      container.removeEventListener('wheel', handleWheelCapture, { capture: true })
+      document.removeEventListener('mousemove', handleGlobalMouseMove)
+      document.removeEventListener('mouseup', handleGlobalMouseUp)
+      document.removeEventListener('contextmenu', handleContextMenu)
+    }
+  }, [isPanning, lastMousePos, zoom, panOffset])
 
   // Place pixels
   const placePixels = async () => {
@@ -544,7 +799,7 @@ export default function PixelPillage() {
         {connected && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             {/* Canvas */}
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-3 order-2 lg:order-1">
               <Card className="bg-midnight-void/80 border-soda-chrome/30">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -564,7 +819,7 @@ export default function PixelPillage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setZoom(Math.min(5, zoom * 1.2))}
+                        onClick={() => setZoom(Math.min(20, zoom * 1.2))}
                         className="text-aqua-glitch hover:text-aqua-glitch"
                       >
                         <ZoomIn className="w-4 h-4" />
@@ -584,7 +839,15 @@ export default function PixelPillage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="relative overflow-hidden bg-midnight-void rounded-lg border border-soda-chrome/30" ref={containerRef}>
+                  <div 
+                    className="relative bg-midnight-void rounded-lg border border-soda-chrome/30" 
+                    style={{ 
+                      overflow: 'hidden', 
+                      touchAction: 'none',
+                      minHeight: '600px'
+                    }} 
+                    ref={containerRef}
+                  >
                     {loading && (
                       <div className="absolute inset-0 bg-midnight-void/80 flex items-center justify-center z-10">
                         <div className="text-center">
@@ -602,13 +865,15 @@ export default function PixelPillage() {
                       onMouseMove={handleCanvasMouseMove}
                       onMouseUp={handleCanvasMouseUp}
                       onMouseLeave={handleCanvasMouseUp}
-                      onWheel={handleCanvasWheel}
-                      className="cursor-crosshair"
+                      //className="cursor-crosshair"
+                      className="cursor-crosshair w-full"
                       style={{
-                        width: CANVAS_CONFIG.width * zoom + 'px',
-                        height: CANVAS_CONFIG.height * zoom + 'px',
-                        transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                        height: '600px',
+                        minHeight: '400px',
+                        maxHeight: '80vh',
                         imageRendering: 'pixelated',
+                        display: 'block',
+                        touchAction: 'none'
                       }}
                     />
 
@@ -682,7 +947,7 @@ export default function PixelPillage() {
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
+            <div className="space-y-6 order-1 lg:order-2">
               {/* Color Palette */}
               <Card className="bg-midnight-void/80 border-soda-chrome/30">
                 <CardHeader>
